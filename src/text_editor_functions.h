@@ -3,8 +3,8 @@
 
 #include <ncurses.h>
 
-#define MAX_LINES 100
-#define MAX_COLS 80
+#define MAX_LINES 15000
+#define MAX_COLS 800
 #define MAX_COMMAND_LENGTH 30
 
 extern char buffer[MAX_LINES][MAX_COLS];
