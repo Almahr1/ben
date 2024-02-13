@@ -56,10 +56,13 @@ ben
 ## Commands
 
 - to enter command mode press {esc}, then type the command and press enter
-
+  
 -- Commands:
 
 - w - saves the file 
 
 - q - quits the program
 
+## Issues
+
+- Currently only supports files up to 15000 lines and 800 collums per line (collum claim debatable)
