@@ -5,6 +5,10 @@
 
 int main(int argc, char *argv[]) {
     initscr();
+    
+    // Fix escape key delay - set to 25ms instead of default 1000ms
+    set_escdelay(25);
+    
     start_color();
     init_pair(1, COLOR_GREEN, COLOR_BLACK);
     init_pair(2, COLOR_WHITE, COLOR_BLACK);
