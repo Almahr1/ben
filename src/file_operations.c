@@ -115,11 +115,14 @@ void saveToFile(const char *filename, TextBuffer *buffer) {
 void loadFromFile(const char *filename, TextBuffer *buffer) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
-        // Handle error gracefully, maybe initialize an empty buffer
+        // File doesn't exist - create a new empty buffer with one line
         init_editor_buffer();
+        Line *initial_line = create_new_line("");
+        insert_line_at_end(buffer, initial_line);
+        buffer->current_line_node = initial_line;
+        buffer->current_col_offset = 0;
         return;
     }
-
 
     // Free any existing content
     free_editor_buffer(buffer);
@@ -140,8 +143,14 @@ void loadFromFile(const char *filename, TextBuffer *buffer) {
     free(line_buffer); // Free the buffer allocated by getline
     fclose(file);
 
-    // Set the cursor to the beginning of the file
-    if (buffer->head != NULL) {
+    // If file was empty, create at least one empty line
+    if (buffer->head == NULL) {
+        Line *initial_line = create_new_line("");
+        insert_line_at_end(buffer, initial_line);
+        buffer->current_line_node = initial_line;
+        buffer->current_col_offset = 0;
+    } else {
+        // Set the cursor to the beginning of the file
         buffer->current_line_node = buffer->head;
         buffer->current_col_offset = 0;
     }
