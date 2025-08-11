@@ -1,3 +1,4 @@
+"""
 # Ben: A Vim-like File Editor
 
 Ben is a minimalist, Vim-like file editor built using C. Designed for speed and simplicity, it currently features basic text editing capabilities with an emphasis on low-level control.
@@ -52,21 +53,17 @@ To compile and run Ben, you'll need `gcc` (or another C compiler) and the `ncurs
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/Spunchkin/ben.git
+    git clone [https://github.com/Spunchkin/ben.git](https://github.com/Spunchkin/ben.git)
     cd ben
     ```
 
-2.  **Compile Ben:**
-    Ben uses a `Makefile` for easy compilation.
+2.  **Compile and Install Ben:**
+    Ben uses a `Makefile` for easy compilation and installation. Run the following commands:
     ```bash
     make
+    sudo make install
     ```
-
-3.  **Run Ben:**
-    ```bash
-    ./ben [filename]
-    ```
-    Replace `[filename]` with the path to the file you want to edit. If no filename is provided, Ben will open an empty buffer.
+    The `make` command compiles the project, and `sudo make install` moves the compiled `ben` executable to `/usr/local/bin`, making it accessible from anywhere in your terminal.
 
 ---
 
@@ -105,3 +102,4 @@ Contributions are welcome! If you find a bug, have a feature request, or want to
 ## License
 
 This project is licensed under the MIT License - see the `LICENSE` file for details.
+"""
