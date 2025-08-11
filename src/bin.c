@@ -17,8 +17,10 @@ int main(int argc, char *argv[]) {
     noecho(); // Disable input echoing
 
     init_editor_buffer();
-
+    
+    const char *filename = NULL;
     if (argc > 1) {
+        filename = argv[1];
         loadFromFile(argv[1], &editor_buffer);
     } else {
         Line *initial_line = create_new_line("");
@@ -52,7 +54,7 @@ int main(int argc, char *argv[]) {
         drawTextContent(visible_lines, &editor_buffer);
 
         if (special_mode) {
-            drawSpecialMenu(""); // Corrected: removed 'command' argument
+            drawSpecialMenu(command); // Now pass the current command
         }
 
         // Fixed cursor positioning
@@ -71,7 +73,7 @@ int main(int argc, char *argv[]) {
         move(screen_row, editor_buffer.current_col_offset + 8);
         refresh();
 
-        handleInput(command, &editor_buffer);
+        handleInput(command, &editor_buffer, filename);
     }
 
     endwin();
