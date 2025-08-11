@@ -2,41 +2,65 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ncurses.h>
 
-char buffer[MAX_LINES][MAX_COLS];
-int current_line = 1;
-int current_col = 5;
+//...
+
+// Globals used for special mode and top_line
 int top_line = 0;
 int special_mode = 0;
-int line_numbers[MAX_LINES];
 
-void drawLineNumbers(int visible_lines) {
-  for (int i = 0; i < visible_lines; ++i) {
-    if (i + top_line == current_line || buffer[i + top_line][0] != '\0') {
-      mvprintw(i, 1, "~");
-    } else {
-      mvprintw(i, 1, "-");
+// Helper function to get absolute line number
+int get_absolute_line_number(TextBuffer *buffer, Line *target_line) {
+    int line_num = 0;
+    Line *current = buffer->head;
+
+    while (current != NULL && current != target_line) {
+        line_num++;
+        current = current->next;
     }
-  }
+
+    return line_num;
 }
 
-void drawTextContent(int visible_lines) {
-    int start_line = current_line - (visible_lines / 2);
-    int end_line = start_line + visible_lines;
-    if (start_line < 0) {
-        start_line = 0;
-        end_line = visible_lines;
-    } else if (end_line > MAX_LINES) {
-        end_line = MAX_LINES;
-        start_line = MAX_LINES - visible_lines;
+void drawLineNumbers(int visible_lines, const TextBuffer *buffer) {
+    Line *current_line_node = buffer->head;
+    int line_num = 1;
+
+    // Move to the first visible line
+    for (int i = 0; i < top_line && current_line_node != NULL; ++i) {
+        current_line_node = current_line_node->next;
+        line_num++;
     }
 
-    for (int i = start_line; i < end_line; ++i) {
-        mvprintw(i - start_line, 5, "%s", buffer[i]);
+    for (int i = 0; i < visible_lines && current_line_node != NULL; ++i) {
+        mvprintw(i, 1, "%4d", line_num);
+        if (current_line_node == buffer->current_line_node) {
+            mvprintw(i, 5, "->"); // Indicator for the current line
+        } else {
+            mvprintw(i, 5, "  ");
+        }
+        current_line_node = current_line_node->next;
+        line_num++;
     }
 }
 
-void drawSpecialMenu(const char *command, const char *output) {
+void drawTextContent(int visible_lines, const TextBuffer *buffer) {
+    Line *current_line_node = buffer->head;
+
+    // Move to the first visible line
+    for (int i = 0; i < top_line && current_line_node != NULL; ++i) {
+        current_line_node = current_line_node->next;
+    }
+
+    for (int i = 0; i < visible_lines && current_line_node != NULL; ++i) {
+        mvprintw(i, 8, "%s", current_line_node->text);
+        current_line_node = current_line_node->next;
+    }
+}
+
+// Corrected: Removed `command` parameter
+void drawSpecialMenu(const char *output) {
     int menu_width = 40;
     int menu_height = 5;
     int start_x = (COLS - menu_width) / 2;
@@ -55,117 +79,169 @@ void drawSpecialMenu(const char *command, const char *output) {
     mvvline(start_y, start_x + menu_width - 1, ' ', menu_height);
     attroff(A_BOLD | A_REVERSE);
 
-    // Print command and output
-    mvprintw(start_y + 1, start_x + (menu_width - strlen(command)) / 2, "%s", command);
+    // Print output
     mvprintw(start_y + 2, start_x + (menu_width - strlen(output)) / 2, "%s", output);
 }
 
+void handleNormalModeInput(int ch, TextBuffer *buffer) {
+    Line *line = buffer->current_line_node;
+    size_t current_col = buffer->current_col_offset;
+    int max_row, max_col;
+    getmaxyx(stdscr, max_row, max_col); // Fixed: separate variables for row and col
 
-void handleNormalModeInput(int ch) {
-  switch (ch) {
-  case 10: // Enter key
-    if (current_line < MAX_LINES - 1) {
-      // Shift lines below the current line down
-      for (int i = MAX_LINES - 1; i > current_line + 1; --i) {
-        strcpy(buffer[i], buffer[i - 1]);
-      }
-      // Insert an empty line at the current position
-      buffer[current_line + 1][0] = '\0';
-      // Move to the next line
-      current_line++;
-      current_col = 5;
-    }else if (strcmp(&buffer[current_line+1][5], "\0")){
-        current_line++;
-        current_col = 5;
+    // Calculate visible lines (accounting for potential status line)
+    int visible_lines = max_row;
+    if (special_mode) {
+        visible_lines = max_row; // Menu doesn't reduce visible area since it's overlaid
     }
-    break;
-  case KEY_BACKSPACE:
-  case 127: // Backspace key
-    if (current_col > 5) {
-      current_col--;
-      // Shift characters to the left
-      memmove(&buffer[current_line][current_col - 5],
-              &buffer[current_line][current_col + 1 - 5],
-              strlen(&buffer[current_line][current_col - 5]));
-      buffer[current_line][strlen(buffer[current_line])] =
-          '\0'; // Null terminate the string
-    } else if (current_line > 1) {
-      // Shift lines below the current line up
-      for (int i = current_line; i < MAX_LINES - 1 && buffer[i][0] != '\0';
-           ++i) {
-        strcpy(buffer[i], buffer[i + 1]);
-      }
-      buffer[MAX_LINES - 1][0] = '\0'; // Clear last line
-      // Move cursor to end of previous line
-      current_line--;
-      current_col = strlen(buffer[current_line]) + 5;
-    }
-    break;
 
-  case KEY_DC: // Delete key
-    if (current_col < strlen(buffer[current_line]) + 5) {
-      memmove(&buffer[current_line][current_col - 5],
-              &buffer[current_line][current_col + 1 - 5],
-              strlen(&buffer[current_line][current_col - 5]));
-      buffer[current_line][strlen(buffer[current_line])] = '\0';
-    } else if (current_line < MAX_LINES - 1 &&
-               buffer[current_line + 1][0] != '\0') {
-      // Merge current line with next line
-      strcat(buffer[current_line], buffer[current_line + 1]);
-      // Shift subsequent lines up
-      for (int i = current_line + 1;
-           i < MAX_LINES - 1 && buffer[i + 1][0] != '\0'; ++i) {
-        strcpy(buffer[i], buffer[i + 1]);
-      }
-      buffer[MAX_LINES - 1][0] = '\0'; // Clear last line
+    switch (ch) {
+    case 10: // Enter key
+        if (line != NULL) {
+            Line *new_line = create_new_line(line->text + current_col);
+            // Truncate the current line
+            line->text[current_col] = '\0';
+            line->length = current_col;
+
+            insert_line_after(line, new_line);
+            buffer->current_line_node = new_line;
+            buffer->current_col_offset = 0;
+
+            // Fixed scrolling: check if cursor moved below visible area
+            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
+            if (cursor_line >= top_line + visible_lines) {
+                top_line = cursor_line - visible_lines + 1;
+            }
+        }
+        break;
+
+    case KEY_BACKSPACE:
+    case 127: // Backspace key
+        if (current_col > 0) {
+            memmove(&line->text[current_col - 1], &line->text[current_col],
+                   line->length - current_col + 1);
+            line->length--;
+            line->text = realloc(line->text, line->length + 1);
+            buffer->current_col_offset--;
+        } else if (line->prev != NULL) {
+            Line *prev_line = line->prev;
+            size_t prev_len = prev_line->length;
+
+            // Merge lines
+            prev_line->text = realloc(prev_line->text, prev_len + line->length + 1);
+            strcat(prev_line->text, line->text);
+            prev_line->length = prev_len + line->length;
+
+            // Unlink and free current line
+            prev_line->next = line->next;
+            if (line->next != NULL) {
+                line->next->prev = prev_line;
+            } else {
+                buffer->tail = prev_line;
+            }
+            free(line->text);
+            free(line);
+            buffer->num_lines--;
+
+            buffer->current_line_node = prev_line;
+            buffer->current_col_offset = prev_len;
+
+            // Fixed scrolling after merge
+            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
+            if (cursor_line < top_line) {
+                top_line = cursor_line;
+            }
+        }
+        break;
+
+    case KEY_DC: // Delete key
+        if (current_col < line->length) {
+            memmove(&line->text[current_col], &line->text[current_col + 1],
+                   line->length - current_col);
+            line->length--;
+            line->text = realloc(line->text, line->length + 1);
+        } else if (line->next != NULL) {
+            Line *next_line = line->next;
+            size_t line_len = line->length;
+
+            // Merge lines
+            line->text = realloc(line->text, line_len + next_line->length + 1);
+            strcat(line->text, next_line->text);
+            line->length = line_len + next_line->length;
+
+            // Unlink and free next line
+            line->next = next_line->next;
+            if (next_line->next != NULL) {
+                next_line->next->prev = line;
+            } else {
+                buffer->tail = line;
+            }
+            free(next_line->text);
+            free(next_line);
+            buffer->num_lines--;
+        }
+        break;
+
+    case KEY_UP:
+        if (line->prev != NULL) {
+            buffer->current_line_node = line->prev;
+            if (buffer->current_col_offset > buffer->current_line_node->length) {
+                buffer->current_col_offset = buffer->current_line_node->length;
+            }
+
+            // Fixed scrolling: scroll up if cursor moves above visible area
+            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
+            if (cursor_line < top_line) {
+                top_line = cursor_line;
+            }
+        }
+        break;
+
+    case KEY_DOWN:
+        if (line->next != NULL) {
+            buffer->current_line_node = line->next;
+            if (buffer->current_col_offset > buffer->current_line_node->length) {
+                buffer->current_col_offset = buffer->current_line_node->length;
+            }
+
+            // Fixed scrolling: scroll down if cursor moves below visible area
+            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
+            if (cursor_line >= top_line + visible_lines) {
+                top_line = cursor_line - visible_lines + 1;
+            }
+        }
+        break;
+
+    case KEY_LEFT:
+        if (buffer->current_col_offset > 0) {
+            buffer->current_col_offset--;
+        }
+        break;
+
+    case KEY_RIGHT:
+        if (buffer->current_col_offset < line->length) {
+            buffer->current_col_offset++;
+        }
+        break;
+
+    case 27: // Escape key
+        special_mode = 1 - special_mode; // Toggle special mode
+        break;
+
+    default:
+        if (isprint(ch)) {
+            if (line->length + 1 >= line->capacity) {
+                line->capacity *= 2;
+                line->text = realloc(line->text, line->capacity);
+            }
+            memmove(&line->text[current_col + 1], &line->text[current_col],
+                   line->length - current_col + 1);
+            line->text[current_col] = ch;
+            line->length++;
+            buffer->current_col_offset++;
+        }
+        break;
     }
-    break;
-  case KEY_UP:
-    if (current_line > 0) {
-      current_line--;
-      if (current_line < top_line)
-        top_line = current_line;
-    }
-    break;
-  case KEY_DOWN:
-    if (current_line < MAX_LINES - 1 && strcmp(&buffer[current_line+1][0], "\0")) {
-      current_line++;
-      if (current_line >= top_line + LINES)
-        top_line = current_line - LINES + 1;
-    }else if (current_line < MAX_LINES - 1 && !strcmp(&buffer[current_line+1][0], "\0")){
-        current_line++;
-        current_col = 5;
-        if (current_line >= top_line + LINES)
-            top_line = current_line - LINES + 1;
-    }
-    break;
-  case KEY_LEFT:
-    if (current_col > 5) {
-      current_col--;
-    }
-    break;
-  case KEY_RIGHT:
-    if (current_col < strlen(buffer[current_line]) + 5) {
-      current_col++;
-    }
-    break;
-  case 27:                           // Escape key
-    special_mode = 1 - special_mode; // Toggle special mode
-    break;
-  default:
-    if (buffer[current_line][current_col - 5] == '\0') {
-      // Fill preceding characters with spaces
-      for (int i = strlen(buffer[current_line]); i < current_col - 5; ++i) {
-        buffer[current_line][i] = ' ';
-      }
-      buffer[current_line][current_col - 5 + 1] = '\0';
-    }
-    if (current_col >= 5) {
-      buffer[current_line][current_col - 5] = ch;
-      current_col++;
-    }
-    break;
-  }
 }
 
 void handleSpecialModeInput(int ch, char *command) {
@@ -173,21 +249,7 @@ void handleSpecialModeInput(int ch, char *command) {
 
     switch (ch) {
     case 10: // Enter key
-        if (strcmp(command, "w") == 0) {
-            int menu_width = 40;
-        int menu_height = 5;
-        int start_x = (COLS - menu_width) / 2;
-        int start_y = (LINES - menu_height) / 2;
-        
-        mvprintw(start_y + 1, start_x + (menu_width - strlen("Save as: ")) / 2, "Save as: ");
-
-        refresh();
-        echo(); // Enable input echoing
-        char filename[MAX_COLS];
-        getstr(filename);
-        noecho(); // Disable input echoing
-        saveToFile(filename);
-        } else if (strcmp(command, "q") == 0) {
+        if (strcmp(command, "q") == 0) {
             endwin();
             exit(EXIT_SUCCESS);
         }
@@ -207,11 +269,11 @@ void handleSpecialModeInput(int ch, char *command) {
     }
 }
 
-void handleInput(char *command) {
+void handleInput(char *command, TextBuffer *buffer) {
     int ch = getch();
     if (special_mode) {
         handleSpecialModeInput(ch, command);
     } else {
-        handleNormalModeInput(ch);
+        handleNormalModeInput(ch, buffer);
     }
 }
