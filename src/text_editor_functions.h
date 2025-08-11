@@ -16,12 +16,12 @@ void loadFromFile(const char *filename, TextBuffer *buffer);
 // Display functions
 void drawLineNumbers(int visible_lines, const TextBuffer *buffer);
 void drawTextContent(int visible_lines, const TextBuffer *buffer);
-void drawSpecialMenu(const char *output);
+void drawSpecialMenu(const char *command);
 
 // Input handling
 void handleNormalModeInput(int ch, TextBuffer *buffer);
-void handleSpecialModeInput(int ch, char *command);
-void handleInput(char *command, TextBuffer *buffer);
+void handleSpecialModeInput(int ch, char *command, TextBuffer *buffer, const char *filename);
+void handleInput(char *command, TextBuffer *buffer, const char *filename);
 
 // Utility functions
 int get_absolute_line_number(TextBuffer *buffer, Line *target_line);
