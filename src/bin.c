@@ -25,6 +25,17 @@ int main(int argc, char *argv[]) {
         insert_line_at_end(&editor_buffer, initial_line);
         editor_buffer.current_line_node = initial_line;
     }
+    
+    // Safety check - ensure we always have at least one line and valid cursor position
+    if (editor_buffer.head == NULL) {
+        Line *initial_line = create_new_line("");
+        insert_line_at_end(&editor_buffer, initial_line);
+        editor_buffer.current_line_node = initial_line;
+    }
+    if (editor_buffer.current_line_node == NULL) {
+        editor_buffer.current_line_node = editor_buffer.head;
+        editor_buffer.current_col_offset = 0;
+    }
 
     int max_row, max_col;
 
