@@ -52,7 +52,7 @@ To compile and run Ben, you'll need `gcc` (or another C compiler) and the `ncurs
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/Spunchkin/ben.git](https://github.com/Spunchkin/ben.git)
+    git clone https://github.com/Spunchkin/ben.git
     cd ben
     ```
 
