@@ -1,70 +1,107 @@
+# Ben: A Vim-like File Editor
 
-<a href="https://imgbb.com/"><img src="https://i.ibb.co/ySHh1MR/APmgj-Fu-HCo6-Hq-Bco-Up0-XNYl-XMg3ah06-Vk-Z44w1e-T8-W0-Sl3-G7dyt40l6t-As-LZ4wj-G96-C9at-IL-sq-Nf-P6.webp" alt="APmgj-Fu-HCo6-Hq-Bco-Up0-XNYl-XMg3ah06-Vk-Z44w1e-T8-W0-Sl3-G7dyt40l6t-As-LZ4wj-G96-C9at-IL-sq-Nf-P6-" border="0"></a>
+Ben is a minimalist, Vim-like file editor built using C. Designed for speed and simplicity, it currently features basic text editing capabilities with an emphasis on low-level control.
 
-# Ben
+---
 
-Minimal Text Editor, Made to be used in the console (shitty vim)
+## Features
 
+* **Insert Mode**: Type and edit text.
+* **Normal Mode**: Navigate through the file.
+* **Basic Commands**:
+    * `Escape` to toggle between Normal and Special (command) modes.
+    * `:w` to save the current file.
+    * `:q` to quit the editor.
 
+---
 
+## Getting Dependencies
 
+Ben relies on the `ncurses` library for terminal user interface functionality. Here's how to install it on various Linux distributions:
 
-# Installation
-
-Clone the project
-
-```bash
-  git clone https://link-to-project
-```
-
-Go to the project directory
-
-```bash
-  cd ben/src
-```
-
-make setup file executable
+### Ubuntu/Debian
 
 ```bash
-  chmod +x setup.sh
+sudo apt update
+sudo apt install libncurses-dev
 ```
 
-Start the server
+### Fedora
 
 ```bash
-  ./setup
+sudo dnf install ncurses-devel
 ```
 
-
-## How to use / Examples
-
-- running (opening existing file)
+### Arch Linux
 
 ```bash
-ben {filename}
+sudo pacman -S ncurses
 ```
-- running (opening empty project)
+
+### openSUSE
 
 ```bash
-ben
+sudo zypper install ncurses-devel
 ```
 
+---
 
-## Screenshots
+## Building from Source
 
-<a href="https://ibb.co/30RMW8m"><img src="https://i.ibb.co/cNYCtph/image.webp" alt="image" border="0"></a>
+To compile and run Ben, you'll need `gcc` (or another C compiler) and the `ncurses` development libraries installed.
 
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/Spunchkin/ben/](https://github.com/Spunchkin/ben/)
+    cd ben
+    ```
 
-## Commands
+2.  **Compile Ben:**
+    Ben uses a `Makefile` for easy compilation.
+    ```bash
+    make
+    ```
 
-- to enter command mode press {esc}, then type the command and press enter
-  
--- Commands:
+3.  **Run Ben:**
+    ```bash
+    ./ben [filename]
+    ```
+    Replace `[filename]` with the path to the file you want to edit. If no filename is provided, Ben will open an empty buffer.
 
-- w - saves the file 
+---
 
-- q - quits the program
+## Usage
 
-## Issues
+### Normal Mode
 
-- Currently only supports files up to 15000 lines and 800 collums per line (collum claim debatable)
+* **Arrow Keys**: Move the cursor (or `h`, `j`, `k`, `l` once implemented).
+* **`Escape`**: Switch to Special (command) Mode.
+
+### Insert Mode
+
+* **Type**: Insert characters directly.
+* **`Enter`**: Insert a new line.
+* **`Backspace`**: Delete the character before the cursor.
+* **`Delete`**: Delete the character under the cursor.
+* **`Escape`**: Switch to Normal Mode.
+
+### Special (Command) Mode
+
+* Press `Escape` from Normal Mode to enter Special Mode.
+* Type your command at the bottom of the screen.
+* **`w`**: Save the file. You will be prompted for a filename if you haven't saved before.
+* **`q`**: Quit the editor.
+* Press `Enter` to execute the command.
+* Press `Escape` to return to Normal Mode without executing a command.
+
+---
+
+## Contributing
+
+Contributions are welcome! If you find a bug, have a feature request, or want to contribute code, please feel free to open an issue or submit a pull request on the GitHub repository.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the `LICENSE` file for details.
