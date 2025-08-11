@@ -2,25 +2,28 @@
 #define TEXT_EDITOR_FUNCTIONS_H
 
 #include <ncurses.h>
+#include "data_structures.h" // Include the new header
 
-#define MAX_LINES 15000
-#define MAX_COLS 800
 #define MAX_COMMAND_LENGTH 30
 
-extern char buffer[MAX_LINES][MAX_COLS];
-extern int current_line;
-extern int current_col;
 extern int top_line;
 extern int special_mode;
-extern int line_numbers[MAX_LINES];
 
-void saveToFile(const char *filename);
-void loadFromFile(const char *filename);
-void drawLineNumbers(int visible_lines);
-void drawTextContent(int visible_lines);
-void drawSpecialMenu(const char *command, const char *output);
-void handleNormalModeInput(int ch);
+// File operations
+void saveToFile(const char *filename, TextBuffer *buffer);
+void loadFromFile(const char *filename, TextBuffer *buffer);
+
+// Display functions
+void drawLineNumbers(int visible_lines, const TextBuffer *buffer);
+void drawTextContent(int visible_lines, const TextBuffer *buffer);
+void drawSpecialMenu(const char *output);
+
+// Input handling
+void handleNormalModeInput(int ch, TextBuffer *buffer);
 void handleSpecialModeInput(int ch, char *command);
-void handleInput(char *command);
+void handleInput(char *command, TextBuffer *buffer);
+
+// Utility functions
+int get_absolute_line_number(TextBuffer *buffer, Line *target_line);
 
 #endif
