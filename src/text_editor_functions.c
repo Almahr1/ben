@@ -14,12 +14,12 @@ int special_mode = 0;
 int get_absolute_line_number(TextBuffer *buffer, Line *target_line) {
     int line_num = 0;
     Line *current = buffer->head;
-
+    
     while (current != NULL && current != target_line) {
         line_num++;
         current = current->next;
     }
-
+    
     return line_num;
 }
 
@@ -59,28 +59,44 @@ void drawTextContent(int visible_lines, const TextBuffer *buffer) {
     }
 }
 
-// Corrected: Removed `command` parameter
-void drawSpecialMenu(const char *output) {
-    int menu_width = 40;
-    int menu_height = 5;
+void drawSpecialMenu(const char *command) {
+    int menu_width = 50;
+    int menu_height = 6;
     int start_x = (COLS - menu_width) / 2;
     int start_y = (LINES - menu_height) / 2;
 
-    // Draw box
-    attron(A_BOLD | A_REVERSE);
+    // Draw filled rectangle background
+    attron(A_BOLD | COLOR_PAIR(2));
     for (int y = start_y; y < start_y + menu_height; ++y) {
         mvhline(y, start_x, ' ', menu_width);
     }
+    
+    // Draw border
     mvaddch(start_y, start_x, ACS_ULCORNER);
     mvaddch(start_y, start_x + menu_width - 1, ACS_URCORNER);
     mvaddch(start_y + menu_height - 1, start_x, ACS_LLCORNER);
     mvaddch(start_y + menu_height - 1, start_x + menu_width - 1, ACS_LRCORNER);
-    mvvline(start_y, start_x, ' ', menu_height);
-    mvvline(start_y, start_x + menu_width - 1, ' ', menu_height);
-    attroff(A_BOLD | A_REVERSE);
+    
+    for (int i = 1; i < menu_width - 1; ++i) {
+        mvaddch(start_y, start_x + i, ACS_HLINE);
+        mvaddch(start_y + menu_height - 1, start_x + i, ACS_HLINE);
+    }
+    
+    for (int i = 1; i < menu_height - 1; ++i) {
+        mvaddch(start_y + i, start_x, ACS_VLINE);
+        mvaddch(start_y + i, start_x + menu_width - 1, ACS_VLINE);
+    }
 
-    // Print output
-    mvprintw(start_y + 2, start_x + (menu_width - strlen(output)) / 2, "%s", output);
+    // Print "Command:" label
+    mvprintw(start_y + 2, start_x + 2, "Command:");
+    
+    // Print the current command
+    mvprintw(start_y + 3, start_x + 2, "> %s", command);
+    
+    // Add a cursor indicator
+    mvaddch(start_y + 3, start_x + 4 + strlen(command), ACS_BLOCK);
+    
+    attroff(A_BOLD | COLOR_PAIR(2));
 }
 
 void handleNormalModeInput(int ch, TextBuffer *buffer) {
@@ -88,7 +104,7 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
     size_t current_col = buffer->current_col_offset;
     int max_row, max_col;
     getmaxyx(stdscr, max_row, max_col); // Fixed: separate variables for row and col
-
+    
     // Calculate visible lines (accounting for potential status line)
     int visible_lines = max_row;
     if (special_mode) {
@@ -118,7 +134,7 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
     case KEY_BACKSPACE:
     case 127: // Backspace key
         if (current_col > 0) {
-            memmove(&line->text[current_col - 1], &line->text[current_col],
+            memmove(&line->text[current_col - 1], &line->text[current_col], 
                    line->length - current_col + 1);
             line->length--;
             line->text = realloc(line->text, line->length + 1);
@@ -156,7 +172,7 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
 
     case KEY_DC: // Delete key
         if (current_col < line->length) {
-            memmove(&line->text[current_col], &line->text[current_col + 1],
+            memmove(&line->text[current_col], &line->text[current_col + 1], 
                    line->length - current_col);
             line->length--;
             line->text = realloc(line->text, line->length + 1);
@@ -234,7 +250,7 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
                 line->capacity *= 2;
                 line->text = realloc(line->text, line->capacity);
             }
-            memmove(&line->text[current_col + 1], &line->text[current_col],
+            memmove(&line->text[current_col + 1], &line->text[current_col], 
                    line->length - current_col + 1);
             line->text[current_col] = ch;
             line->length++;
@@ -244,7 +260,7 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
     }
 }
 
-void handleSpecialModeInput(int ch, char *command) {
+void handleSpecialModeInput(int ch, char *command, TextBuffer *buffer, const char *filename) {
     static int command_index = 0;
 
     switch (ch) {
@@ -252,13 +268,48 @@ void handleSpecialModeInput(int ch, char *command) {
         if (strcmp(command, "q") == 0) {
             endwin();
             exit(EXIT_SUCCESS);
+        } else if (strcmp(command, "w") == 0) {
+            if (filename != NULL && strlen(filename) > 0) {
+                saveToFile(filename, buffer);
+                // You could add some feedback here
+            }
+        } else if (strncmp(command, "w ", 2) == 0) {
+            // Save with specified filename: "w filename.txt"
+            const char *save_filename = command + 2; // Skip "w "
+            if (strlen(save_filename) > 0) {
+                saveToFile(save_filename, buffer);
+            }
+        } else if (strcmp(command, "wq") == 0) {
+            if (filename != NULL && strlen(filename) > 0) {
+                saveToFile(filename, buffer);
+            }
+            endwin();
+            exit(EXIT_SUCCESS);
+        } else if (strncmp(command, "wq ", 3) == 0) {
+            // Save with specified filename and quit: "wq filename.txt"
+            const char *save_filename = command + 3; // Skip "wq "
+            if (strlen(save_filename) > 0) {
+                saveToFile(save_filename, buffer);
+            }
+            endwin();
+            exit(EXIT_SUCCESS);
         }
+        
         command[0] = '\0'; // Reset command buffer
         command_index = 0; // Reset command index
         special_mode = 0;  // Exit special mode
         break;
-    case 27:                           // Escape key
+    case 27: // Escape key
+        command[0] = '\0'; // Reset command buffer
+        command_index = 0; // Reset command index
         special_mode = 1 - special_mode; // Toggle special mode
+        break;
+    case KEY_BACKSPACE:
+    case 127: // Backspace in command mode
+        if (command_index > 0) {
+            command_index--;
+            command[command_index] = '\0';
+        }
         break;
     default:
         if (isprint(ch) && command_index < MAX_COMMAND_LENGTH - 1) {
@@ -269,10 +320,10 @@ void handleSpecialModeInput(int ch, char *command) {
     }
 }
 
-void handleInput(char *command, TextBuffer *buffer) {
+void handleInput(char *command, TextBuffer *buffer, const char *filename) {
     int ch = getch();
     if (special_mode) {
-        handleSpecialModeInput(ch, command);
+        handleSpecialModeInput(ch, command, buffer, filename);
     } else {
         handleNormalModeInput(ch, buffer);
     }
