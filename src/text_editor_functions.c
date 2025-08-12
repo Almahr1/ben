@@ -1,9 +1,14 @@
+#ifdef _WIN32
+#include <pdcurses.h>
+#else
+#include <ncurses.h>
+#endif
+
 #include "text_editor_functions.h"
 #include "color_config.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ncurses.h>
 
 // Globals used for mode and top_line
 int top_line = 0;

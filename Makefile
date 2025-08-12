@@ -1,5 +1,14 @@
-# Define the C compiler to use
-CC = gcc
+ifeq ($(OS),Windows_NT)
+    CC = gcc
+    LDFLAGS = -lpdcurses
+    TARGET = ben.exe
+else
+# Linux/macOS settings
+    CC = gcc
+    LDFLAGS = -lcurses
+    TARGET = ben
+endif
+
 
 # Define compilation flags
 # -Wall: Enable all common warnings
@@ -8,13 +17,6 @@ CC = gcc
 # -g: Include debugging information (for gdb)
 # -Isrc: Look for header files in the src directory
 CFLAGS = -Wall -Wextra -std=c11 -g -Isrc
-
-# Define linker flags (for ncurses library)
-# -lcurses or -lncurses: Link with the ncurses library
-LDFLAGS = -lcurses
-
-# Define the executable name
-TARGET = ben
 
 # Define source files inside the src directory
 SRCS = src/bin.c src/color_config.c src/file_operations.c src/text_editor_functions.c

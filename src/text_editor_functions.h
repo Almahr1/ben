@@ -1,7 +1,12 @@
 #ifndef TEXT_EDITOR_FUNCTIONS_H
 #define TEXT_EDITOR_FUNCTIONS_H
 
+#ifdef _WIN32
+#include <pdcurses.h>
+#else
 #include <ncurses.h>
+#endif
+
 #include "data_structures.h" // Include the new header
 #include "color_config.h"    // Include color configuration
 

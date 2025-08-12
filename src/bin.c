@@ -1,4 +1,9 @@
+#ifdef _WIN32
+#include <pdcurses.h>
+#else
 #include <curses.h>
+#endif
+
 #include <stdlib.h>
 #include "text_editor_functions.h"
 #include "data_structures.h"
