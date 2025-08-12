@@ -289,20 +289,18 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
         }
         break;
     case 'k': // Move up
-        if (line->prev != NULL) {
-            buffer->current_line_node = line->prev;
-            if (buffer->current_col_offset > buffer->current_line_node->length) {
-                buffer->current_col_offset = buffer->current_line_node->length;
-            }
-
-            // Check if cursor moved above visible area
-            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
-            if (cursor_screen_row < 1) {
-                top_line--;
-                if (top_line < 0) top_line = 0;
-            }
+    if (line->prev != NULL) {
+        buffer->current_line_node = line->prev;
+        if (buffer->current_col_offset > buffer->current_line_node->length) {
+            buffer->current_col_offset = buffer->current_line_node->length;
         }
-        break;
+
+        // Corrected logic for scrolling up
+        if (get_absolute_line_number(&editor_buffer, buffer->current_line_node) < top_line) {
+            top_line--;
+        }
+    }
+    break;
     case 'l': // Move right
         if (buffer->current_col_offset < line->length) {
             buffer->current_col_offset++;
