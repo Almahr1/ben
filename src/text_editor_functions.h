@@ -3,6 +3,7 @@
 
 #include <ncurses.h>
 #include "data_structures.h" // Include the new header
+#include "color_config.h"    // Include color configuration
 
 #define MAX_COMMAND_LENGTH 30
 
@@ -16,7 +17,7 @@ void loadFromFile(const char *filename, TextBuffer *buffer);
 // Display functions
 void drawLineNumbers(int visible_lines, const TextBuffer *buffer);
 void drawTextContent(int visible_lines, const TextBuffer *buffer);
-void drawSpecialMenu(const char *command);
+void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *command);
 
 // Input handling
 void handleNormalModeInput(int ch, TextBuffer *buffer);
