@@ -5,9 +5,11 @@
 #include <string.h>
 #include <ncurses.h>
 
-// Globals used for mode and top_line
+//...
+
+// Globals used for special mode and top_line
 int top_line = 0;
-EditorMode current_mode = MODE_NORMAL;
+int special_mode = 0;
 
 // Helper function to get absolute line number
 int get_absolute_line_number(TextBuffer *buffer, Line *target_line) {
@@ -22,45 +24,6 @@ int get_absolute_line_number(TextBuffer *buffer, Line *target_line) {
     return line_num;
 }
 
-const char* get_mode_string(EditorMode mode) {
-    switch (mode) {
-        case MODE_NORMAL:
-            return "NORMAL";
-        case MODE_INSERT:
-            return "INSERT";
-        case MODE_COMMAND:
-            return "COMMAND";
-        default:
-            return "UNKNOWN";
-    }
-}
-
-void drawModeIndicator(EditorMode mode) {
-    int color_pair;
-    const char* mode_text = get_mode_string(mode);
-    
-    // Select appropriate color pair for the mode
-    switch (mode) {
-        case MODE_NORMAL:
-            color_pair = COLOR_PAIR_NORMAL_MODE;
-            break;
-        case MODE_INSERT:
-            color_pair = COLOR_PAIR_INSERT_MODE;
-            break;
-        case MODE_COMMAND:
-            color_pair = COLOR_PAIR_COMMAND_MODE;
-            break;
-        default:
-            color_pair = COLOR_PAIR_NORMAL_MODE;
-            break;
-    }
-    
-    // Draw the mode indicator rectangle in top-left corner
-    attron(COLOR_PAIR(color_pair));
-    mvprintw(0, 0, " %s ", mode_text);
-    attroff(COLOR_PAIR(color_pair));
-}
-
 void drawLineNumbers(int visible_lines, const TextBuffer *buffer) {
     Line *current_line_node = buffer->head;
     int line_num = 1;
@@ -71,19 +34,16 @@ void drawLineNumbers(int visible_lines, const TextBuffer *buffer) {
         line_num++;
     }
 
-    for (int i = 1; i <= visible_lines && current_line_node != NULL; ++i) { // Start from row 1 to leave space for mode indicator
-        attron(COLOR_PAIR(COLOR_PAIR_LINE_NUMBERS));
+    for (int i = 0; i < visible_lines && current_line_node != NULL; ++i) {
         mvprintw(i, 1, "%4d", line_num);
         if (current_line_node == buffer->current_line_node) {
             // Use cursor line color for the current line indicator
-            attroff(COLOR_PAIR(COLOR_PAIR_LINE_NUMBERS));
             attron(COLOR_PAIR(COLOR_PAIR_CURSOR_LINE));
             mvprintw(i, 5, "->");
             attroff(COLOR_PAIR(COLOR_PAIR_CURSOR_LINE));
         } else {
             mvprintw(i, 5, "  ");
         }
-        attroff(COLOR_PAIR(COLOR_PAIR_LINE_NUMBERS));
         current_line_node = current_line_node->next;
         line_num++;
     }
@@ -97,7 +57,7 @@ void drawTextContent(int visible_lines, const TextBuffer *buffer) {
         current_line_node = current_line_node->next;
     }
 
-    for (int i = 1; i <= visible_lines && current_line_node != NULL; ++i) { // Start from row 1 to leave space for mode indicator
+    for (int i = 0; i < visible_lines && current_line_node != NULL; ++i) {
         // Use main text color for content
         attron(COLOR_PAIR(COLOR_PAIR_TEXT));
         mvprintw(i, 8, "%s", current_line_node->text);
@@ -133,7 +93,7 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
     mvprintw(status_row, max_col - pos_len - 1, "%s", position_text);
 
     // If in command mode, show command input
-    if (current_mode == MODE_COMMAND && command != NULL) {
+    if (special_mode && command != NULL) {
         // Change to command input colors
         attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
         attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
@@ -166,174 +126,10 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
     int max_row, max_col;
     getmaxyx(stdscr, max_row, max_col);
 
-    // Calculate visible lines (subtract 2: 1 for status bar, 1 for mode indicator)
-    int visible_lines = max_row - 2;
+    // Calculate visible lines (subtract 1 for status bar)
+    int visible_lines = max_row - 1;
 
     switch (ch) {
-    // Vim-style movement keys
-    case 'h': // Move left
-        if (buffer->current_col_offset > 0) {
-            buffer->current_col_offset--;
-        }
-        break;
-    case 'j': // Move down
-        if (line->next != NULL) {
-            buffer->current_line_node = line->next;
-            if (buffer->current_col_offset > buffer->current_line_node->length) {
-                buffer->current_col_offset = buffer->current_line_node->length;
-            }
-
-            // Fixed scrolling: scroll down if cursor moves below visible area
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line >= top_line + visible_lines) {
-                top_line = cursor_line - visible_lines + 1;
-            }
-        }
-        break;
-    case 'k': // Move up
-        if (line->prev != NULL) {
-            buffer->current_line_node = line->prev;
-            if (buffer->current_col_offset > buffer->current_line_node->length) {
-                buffer->current_col_offset = buffer->current_line_node->length;
-            }
-
-            // Fixed scrolling: scroll up if cursor moves above visible area
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line < top_line) {
-                top_line = cursor_line;
-            }
-        }
-        break;
-    case 'l': // Move right
-        if (buffer->current_col_offset < line->length) {
-            buffer->current_col_offset++;
-        }
-        break;
-
-    // Traditional arrow keys (still supported)
-    case KEY_UP:
-        handleNormalModeInput('k', buffer);
-        break;
-    case KEY_DOWN:
-        handleNormalModeInput('j', buffer);
-        break;
-    case KEY_LEFT:
-        handleNormalModeInput('h', buffer);
-        break;
-    case KEY_RIGHT:
-        handleNormalModeInput('l', buffer);
-        break;
-
-    // Mode switching
-    case 'i': // Enter insert mode
-        current_mode = MODE_INSERT;
-        break;
-    case 'a': // Enter insert mode after cursor
-        if (buffer->current_col_offset < line->length) {
-            buffer->current_col_offset++;
-        }
-        current_mode = MODE_INSERT;
-        break;
-    case 'A': // Enter insert mode at end of line
-        buffer->current_col_offset = line->length;
-        current_mode = MODE_INSERT;
-        break;
-    case 'o': // Insert new line below and enter insert mode
-        {
-            Line *new_line = create_new_line("");
-            insert_line_after(line, new_line);
-            buffer->current_line_node = new_line;
-            buffer->current_col_offset = 0;
-            current_mode = MODE_INSERT;
-
-            // Fixed scrolling: check if cursor moved below visible area
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line >= top_line + visible_lines) {
-                top_line = cursor_line - visible_lines + 1;
-            }
-        }
-        break;
-    case 'O': // Insert new line above and enter insert mode
-        {
-            Line *new_line = create_new_line("");
-            if (line->prev != NULL) {
-                insert_line_after(line->prev, new_line);
-            } else {
-                // Insert at beginning
-                new_line->next = buffer->head;
-                if (buffer->head != NULL) {
-                    buffer->head->prev = new_line;
-                }
-                buffer->head = new_line;
-                if (buffer->tail == NULL) {
-                    buffer->tail = new_line;
-                }
-                buffer->num_lines++;
-            }
-            buffer->current_line_node = new_line;
-            buffer->current_col_offset = 0;
-            current_mode = MODE_INSERT;
-
-            // Fixed scrolling after insert
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line < top_line) {
-                top_line = cursor_line;
-            }
-        }
-        break;
-
-    case ':': // Enter command mode
-        current_mode = MODE_COMMAND;
-        break;
-
-    case 27: // Escape key - should stay in normal mode
-        current_mode = MODE_NORMAL;
-        break;
-
-    // Normal mode editing commands
-    case 'x': // Delete character under cursor
-        if (current_col < line->length) {
-            memmove(&line->text[current_col], &line->text[current_col + 1],
-                   line->length - current_col);
-            line->length--;
-            line->text = realloc(line->text, line->length + 1);
-        }
-        break;
-
-    case 'X': // Delete character before cursor
-        if (current_col > 0) {
-            memmove(&line->text[current_col - 1], &line->text[current_col],
-                   line->length - current_col + 1);
-            line->length--;
-            line->text = realloc(line->text, line->length + 1);
-            buffer->current_col_offset--;
-        }
-        break;
-
-    default:
-        // Ignore other keys in normal mode
-        break;
-    }
-}
-
-void handleInsertModeInput(int ch, TextBuffer *buffer) {
-    Line *line = buffer->current_line_node;
-    size_t current_col = buffer->current_col_offset;
-    int max_row, max_col;
-    getmaxyx(stdscr, max_row, max_col);
-
-    // Calculate visible lines (subtract 2: 1 for status bar, 1 for mode indicator)
-    int visible_lines = max_row - 2;
-
-    switch (ch) {
-    case 27: // Escape key - return to normal mode
-        current_mode = MODE_NORMAL;
-        // Move cursor back one position if possible (vim behavior)
-        if (buffer->current_col_offset > 0) {
-            buffer->current_col_offset--;
-        }
-        break;
-
     case 10: // Enter key
         if (line != NULL) {
             Line *new_line = create_new_line(line->text + current_col);
@@ -420,7 +216,6 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
         }
         break;
 
-    // Arrow keys work in insert mode
     case KEY_UP:
         if (line->prev != NULL) {
             buffer->current_line_node = line->prev;
@@ -428,6 +223,7 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
                 buffer->current_col_offset = buffer->current_line_node->length;
             }
 
+            // Fixed scrolling: scroll up if cursor moves above visible area
             int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
             if (cursor_line < top_line) {
                 top_line = cursor_line;
@@ -442,6 +238,7 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
                 buffer->current_col_offset = buffer->current_line_node->length;
             }
 
+            // Fixed scrolling: scroll down if cursor moves below visible area
             int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
             if (cursor_line >= top_line + visible_lines) {
                 top_line = cursor_line - visible_lines + 1;
@@ -461,6 +258,14 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
         }
         break;
 
+    case ':': // Colon key - enter command mode
+        special_mode = 1;
+        break;
+
+    case 27: // Escape key - can also toggle special mode
+        special_mode = 1 - special_mode;
+        break;
+
     default:
         if (isprint(ch)) {
             if (line->length + 1 >= line->capacity) {
@@ -477,7 +282,7 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
     }
 }
 
-void handleCommandModeInput(int ch, char *command, TextBuffer *buffer, const char *filename) {
+void handleSpecialModeInput(int ch, char *command, TextBuffer *buffer, const char *filename) {
     static int command_index = 0;
 
     switch (ch) {
@@ -514,12 +319,12 @@ void handleCommandModeInput(int ch, char *command, TextBuffer *buffer, const cha
 
         command[0] = '\0'; // Reset command buffer
         command_index = 0; // Reset command index
-        current_mode = MODE_NORMAL;  // Return to normal mode
+        special_mode = 0;  // Exit special mode
         break;
     case 27: // Escape key
         command[0] = '\0'; // Reset command buffer
         command_index = 0; // Reset command index
-        current_mode = MODE_NORMAL; // Return to normal mode
+        special_mode = 0; // Exit special mode
         break;
     case KEY_BACKSPACE:
     case 127: // Backspace in command mode
@@ -539,16 +344,9 @@ void handleCommandModeInput(int ch, char *command, TextBuffer *buffer, const cha
 
 void handleInput(char *command, TextBuffer *buffer, const char *filename) {
     int ch = getch();
-    
-    switch (current_mode) {
-        case MODE_NORMAL:
-            handleNormalModeInput(ch, buffer);
-            break;
-        case MODE_INSERT:
-            handleInsertModeInput(ch, buffer);
-            break;
-        case MODE_COMMAND:
-            handleCommandModeInput(ch, command, buffer, filename);
-            break;
+    if (special_mode) {
+        handleSpecialModeInput(ch, command, buffer, filename);
+    } else {
+        handleNormalModeInput(ch, buffer);
     }
 }

@@ -18,22 +18,12 @@
 #define COMMAND_INPUT_FG_COLOR  COLOR_CYAN
 #define COMMAND_INPUT_BG_COLOR  COLOR_BLACK
 
-#define NORMAL_MODE_FG_COLOR    COLOR_BLACK
-#define NORMAL_MODE_BG_COLOR    COLOR_GREEN
-#define INSERT_MODE_FG_COLOR    COLOR_WHITE
-#define INSERT_MODE_BG_COLOR    COLOR_RED
-#define COMMAND_MODE_FG_COLOR   COLOR_WHITE
-#define COMMAND_MODE_BG_COLOR   COLOR_YELLOW
-
 // Color Pair Definitions (don't change these numbers, they're used internally)
 #define COLOR_PAIR_TEXT         1
 #define COLOR_PAIR_LINE_NUMBERS 2
 #define COLOR_PAIR_STATUS_BAR   3
 #define COLOR_PAIR_COMMAND      4
 #define COLOR_PAIR_CURSOR_LINE  5
-#define COLOR_PAIR_NORMAL_MODE  6
-#define COLOR_PAIR_INSERT_MODE  7
-#define COLOR_PAIR_COMMAND_MODE 8
 
 // Function to initialize all color pairs
 void init_editor_colors(void);
