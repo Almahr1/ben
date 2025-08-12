@@ -17,7 +17,7 @@ LDFLAGS = -lcurses
 TARGET = ben
 
 # Define source files inside the src directory
-SRCS = src/bin.c src/file_operations.c src/text_editor_functions.c
+SRCS = src/bin.c src/color_config.c src/file_operations.c src/text_editor_functions.c
 
 # Automatically generate object file names from source files
 OBJS = $(SRCS:.c=.o)
@@ -48,4 +48,3 @@ clean:
 install: $(TARGET)
 	sudo cp $(TARGET) $(INSTALL_DIR)
 	echo "Ben has been installed to $(INSTALL_DIR). You can now run 'ben' from anywhere."
-
