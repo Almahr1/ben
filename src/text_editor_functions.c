@@ -8,6 +8,7 @@
 // Globals used for mode and top_line
 int top_line = 0;
 EditorMode current_mode = MODE_NORMAL;
+int line_wrap_enabled = 1; // Enable line wrapping by default
 
 // Helper function to get absolute line number
 int get_absolute_line_number(TextBuffer *buffer, Line *target_line) {
@@ -59,11 +60,56 @@ void drawModeIndicator(EditorMode mode) {
     attron(COLOR_PAIR(color_pair));
     mvprintw(0, 0, " %s ", mode_text);
     attroff(COLOR_PAIR(color_pair));
+    
+    // Add wrap indicator
+    if (line_wrap_enabled) {
+        mvprintw(0, strlen(mode_text) + 3, " [WRAP] ");
+    }
+}
+
+// Calculate how many screen lines a text line will take when wrapped
+int get_wrapped_line_count(const char *text, int max_width) {
+    if (!line_wrap_enabled) {
+        return 1;
+    }
+    
+    int len = strlen(text);
+    if (len == 0) {
+        return 1;
+    }
+    
+    return (len + max_width - 1) / max_width; // Ceiling division
+}
+
+// Draw a line with wrapping support
+void draw_wrapped_line(int row, int col, const char *text, int max_width, int color_pair) {
+    if (!line_wrap_enabled) {
+        attron(COLOR_PAIR(color_pair));
+        mvprintw(row, col, "%.*s", max_width, text);
+        attroff(COLOR_PAIR(color_pair));
+        return;
+    }
+    
+    int len = strlen(text);
+    int current_row = row;
+    int pos = 0;
+    
+    attron(COLOR_PAIR(color_pair));
+    while (pos < len) {
+        int chars_to_print = (len - pos > max_width) ? max_width : (len - pos);
+        mvprintw(current_row, col, "%.*s", chars_to_print, text + pos);
+        pos += chars_to_print;
+        current_row++;
+    }
+    attroff(COLOR_PAIR(color_pair));
 }
 
 void drawLineNumbers(int visible_lines, const TextBuffer *buffer) {
     Line *current_line_node = buffer->head;
     int line_num = 1;
+    int screen_row = 1; // Start from row 1 to leave space for mode indicator
+    int max_col = getmaxx(stdscr);
+    int text_width = max_col - 8; // Available width for text content
 
     // Move to the first visible line
     for (int i = 0; i < top_line && current_line_node != NULL; ++i) {
@@ -71,19 +117,31 @@ void drawLineNumbers(int visible_lines, const TextBuffer *buffer) {
         line_num++;
     }
 
-    for (int i = 1; i <= visible_lines && current_line_node != NULL; ++i) { // Start from row 1 to leave space for mode indicator
+    while (screen_row <= visible_lines && current_line_node != NULL) {
+        int wrapped_lines = get_wrapped_line_count(current_line_node->text, text_width);
+        
+        // Draw line number for the first wrapped line
         attron(COLOR_PAIR(COLOR_PAIR_LINE_NUMBERS));
-        mvprintw(i, 1, "%4d", line_num);
+        mvprintw(screen_row, 1, "%4d", line_num);
+        
         if (current_line_node == buffer->current_line_node) {
             // Use cursor line color for the current line indicator
             attroff(COLOR_PAIR(COLOR_PAIR_LINE_NUMBERS));
             attron(COLOR_PAIR(COLOR_PAIR_CURSOR_LINE));
-            mvprintw(i, 5, "->");
+            mvprintw(screen_row, 5, "->");
             attroff(COLOR_PAIR(COLOR_PAIR_CURSOR_LINE));
         } else {
-            mvprintw(i, 5, "  ");
+            mvprintw(screen_row, 5, "  ");
         }
         attroff(COLOR_PAIR(COLOR_PAIR_LINE_NUMBERS));
+        
+        // For continuation lines, just show spaces
+        for (int i = 1; i < wrapped_lines && screen_row + i <= visible_lines; i++) {
+            mvprintw(screen_row + i, 1, "    ");
+            mvprintw(screen_row + i, 5, "  ");
+        }
+        
+        screen_row += wrapped_lines;
         current_line_node = current_line_node->next;
         line_num++;
     }
@@ -91,19 +149,54 @@ void drawLineNumbers(int visible_lines, const TextBuffer *buffer) {
 
 void drawTextContent(int visible_lines, const TextBuffer *buffer) {
     Line *current_line_node = buffer->head;
+    int screen_row = 1; // Start from row 1 to leave space for mode indicator
+    int max_col = getmaxx(stdscr);
+    int text_width = max_col - 8; // Available width for text content
 
     // Move to the first visible line
     for (int i = 0; i < top_line && current_line_node != NULL; ++i) {
         current_line_node = current_line_node->next;
     }
 
-    for (int i = 1; i <= visible_lines && current_line_node != NULL; ++i) { // Start from row 1 to leave space for mode indicator
-        // Use main text color for content
-        attron(COLOR_PAIR(COLOR_PAIR_TEXT));
-        mvprintw(i, 8, "%s", current_line_node->text);
-        attroff(COLOR_PAIR(COLOR_PAIR_TEXT));
+    while (screen_row <= visible_lines && current_line_node != NULL) {
+        // Draw the line with wrapping
+        draw_wrapped_line(screen_row, 8, current_line_node->text, text_width, COLOR_PAIR_TEXT);
+        
+        int wrapped_lines = get_wrapped_line_count(current_line_node->text, text_width);
+        screen_row += wrapped_lines;
         current_line_node = current_line_node->next;
     }
+}
+
+// Calculate which screen row the cursor should be on
+int get_cursor_screen_row(TextBuffer *buffer, int visible_lines) {
+    Line *current_line_node = buffer->head;
+    int line_count = 0;
+    int screen_row = 1; // Start from row 1 to account for mode indicator
+    int max_col = getmaxx(stdscr);
+    int text_width = max_col - 8;
+
+    // Move to the first visible line
+    for (int i = 0; i < top_line && current_line_node != NULL; ++i) {
+        current_line_node = current_line_node->next;
+        line_count++;
+    }
+
+    // Calculate screen position for each line until we reach the cursor line
+    while (current_line_node != NULL && current_line_node != buffer->current_line_node) {
+        int wrapped_lines = get_wrapped_line_count(current_line_node->text, text_width);
+        screen_row += wrapped_lines;
+        current_line_node = current_line_node->next;
+        line_count++;
+    }
+
+    // If we found the cursor line, calculate which wrapped line the cursor is on
+    if (current_line_node == buffer->current_line_node && line_wrap_enabled) {
+        int cursor_wrapped_line = buffer->current_col_offset / text_width;
+        screen_row += cursor_wrapped_line;
+    }
+
+    return screen_row;
 }
 
 void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *command) {
@@ -183,10 +276,10 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
                 buffer->current_col_offset = buffer->current_line_node->length;
             }
 
-            // Fixed scrolling: scroll down if cursor moves below visible area
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line >= top_line + visible_lines) {
-                top_line = cursor_line - visible_lines + 1;
+            // Check if cursor moved below visible area (accounting for wrapped lines)
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            if (cursor_screen_row > visible_lines) {
+                top_line++;
             }
         }
         break;
@@ -197,10 +290,11 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
                 buffer->current_col_offset = buffer->current_line_node->length;
             }
 
-            // Fixed scrolling: scroll up if cursor moves above visible area
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line < top_line) {
-                top_line = cursor_line;
+            // Check if cursor moved above visible area
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            if (cursor_screen_row < 1) {
+                top_line--;
+                if (top_line < 0) top_line = 0;
             }
         }
         break;
@@ -246,10 +340,10 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
             buffer->current_col_offset = 0;
             current_mode = MODE_INSERT;
 
-            // Fixed scrolling: check if cursor moved below visible area
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line >= top_line + visible_lines) {
-                top_line = cursor_line - visible_lines + 1;
+            // Check if cursor moved below visible area
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            if (cursor_screen_row > visible_lines) {
+                top_line++;
             }
         }
         break;
@@ -274,10 +368,11 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
             buffer->current_col_offset = 0;
             current_mode = MODE_INSERT;
 
-            // Fixed scrolling after insert
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line < top_line) {
-                top_line = cursor_line;
+            // Check if cursor moved above visible area
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            if (cursor_screen_row < 1) {
+                top_line--;
+                if (top_line < 0) top_line = 0;
             }
         }
         break;
@@ -288,6 +383,11 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
 
     case 27: // Escape key - should stay in normal mode
         current_mode = MODE_NORMAL;
+        break;
+
+    // Toggle line wrapping
+    case 'w': // Toggle line wrap
+        line_wrap_enabled = !line_wrap_enabled;
         break;
 
     // Normal mode editing commands
@@ -345,10 +445,10 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
             buffer->current_line_node = new_line;
             buffer->current_col_offset = 0;
 
-            // Fixed scrolling: check if cursor moved below visible area
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line >= top_line + visible_lines) {
-                top_line = cursor_line - visible_lines + 1;
+            // Check if cursor moved below visible area
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            if (cursor_screen_row > visible_lines) {
+                top_line++;
             }
         }
         break;
@@ -384,10 +484,11 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
             buffer->current_line_node = prev_line;
             buffer->current_col_offset = prev_len;
 
-            // Fixed scrolling after merge
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line < top_line) {
-                top_line = cursor_line;
+            // Check scrolling after merge
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            if (cursor_screen_row < 1) {
+                top_line--;
+                if (top_line < 0) top_line = 0;
             }
         }
         break;
@@ -428,9 +529,10 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
                 buffer->current_col_offset = buffer->current_line_node->length;
             }
 
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line < top_line) {
-                top_line = cursor_line;
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            if (cursor_screen_row < 1) {
+                top_line--;
+                if (top_line < 0) top_line = 0;
             }
         }
         break;
@@ -442,9 +544,9 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
                 buffer->current_col_offset = buffer->current_line_node->length;
             }
 
-            int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node);
-            if (cursor_line >= top_line + visible_lines) {
-                top_line = cursor_line - visible_lines + 1;
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            if (cursor_screen_row > visible_lines) {
+                top_line++;
             }
         }
         break;
@@ -510,6 +612,12 @@ void handleCommandModeInput(int ch, char *command, TextBuffer *buffer, const cha
             }
             endwin();
             exit(EXIT_SUCCESS);
+        } else if (strcmp(command, "wrap") == 0) {
+            // Toggle line wrapping
+            line_wrap_enabled = !line_wrap_enabled;
+        } else if (strcmp(command, "nowrap") == 0) {
+            // Disable line wrapping
+            line_wrap_enabled = 0;
         }
 
         command[0] = '\0'; // Reset command buffer

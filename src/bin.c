@@ -43,7 +43,9 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         int max_row = getmaxy(stdscr);
+        int max_col = getmaxx(stdscr);
         int visible_lines = max_row - 2; // Reserve one line for status bar and one for mode indicator
+        int text_width = max_col - 8; // Available width for text content
         clear();
 
         // Draw mode indicator first (top-left corner)
@@ -57,20 +59,28 @@ int main(int argc, char *argv[]) {
         // Draw status bar at bottom
         drawStatusBar(filename, &editor_buffer, current_mode == MODE_COMMAND ? command : NULL);
 
-        // Fixed cursor positioning - account for mode indicator taking up top row
-        int cursor_line = get_absolute_line_number(&editor_buffer, editor_buffer.current_line_node);
-        int screen_row = cursor_line - top_line + 1; // +1 to account for mode indicator row
-
-        // Ensure the cursor is visible on screen
-        if (screen_row < 1) { // Must be at least row 1 (below mode indicator)
-            top_line = cursor_line;
-            screen_row = 1;
-        } else if (screen_row > visible_lines) {
-            top_line = cursor_line - visible_lines + 1;
-            screen_row = visible_lines;
+        // Calculate cursor position with line wrapping support
+        int cursor_screen_row = get_cursor_screen_row(&editor_buffer, visible_lines);
+        int cursor_screen_col;
+        
+        if (line_wrap_enabled && editor_buffer.current_line_node != NULL) {
+            // Calculate column position within the wrapped line
+            cursor_screen_col = 8 + (editor_buffer.current_col_offset % text_width);
+        } else {
+            cursor_screen_col = editor_buffer.current_col_offset + 8;
         }
 
-        move(screen_row, editor_buffer.current_col_offset + 8);
+        // Ensure the cursor is visible on screen
+        if (cursor_screen_row < 1) { // Must be at least row 1 (below mode indicator)
+            top_line -= (1 - cursor_screen_row);
+            if (top_line < 0) top_line = 0;
+            cursor_screen_row = 1;
+        } else if (cursor_screen_row > visible_lines) {
+            top_line += (cursor_screen_row - visible_lines);
+            cursor_screen_row = visible_lines;
+        }
+
+        move(cursor_screen_row, cursor_screen_col);
         refresh();
 
         handleInput(command, &editor_buffer, filename);

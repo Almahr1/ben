@@ -16,6 +16,7 @@ typedef enum {
 
 extern int top_line;
 extern EditorMode current_mode;
+extern int line_wrap_enabled; // Global flag for line wrapping
 
 // File operations
 void saveToFile(const char *filename, TextBuffer *buffer);
@@ -26,6 +27,11 @@ void drawLineNumbers(int visible_lines, const TextBuffer *buffer);
 void drawTextContent(int visible_lines, const TextBuffer *buffer);
 void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *command);
 void drawModeIndicator(EditorMode mode);
+
+// Line wrapping functions
+int get_wrapped_line_count(const char *text, int max_width);
+void draw_wrapped_line(int row, int col, const char *text, int max_width, int color_pair);
+int get_cursor_screen_row(TextBuffer *buffer, int visible_lines);
 
 // Input handling
 void handleNormalModeInput(int ch, TextBuffer *buffer);
