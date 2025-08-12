@@ -4,8 +4,6 @@
 #include "data_structures.h"
 #include "color_config.h"
 
-// testing git
-
 int main(int argc, char *argv[]) {
     initscr();
 
@@ -47,8 +45,11 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         getmaxyx(stdscr, max_row, max_col);
-        int visible_lines = max_row - 1; // Reserve one line for status bar
+        int visible_lines = max_row - 2; // Reserve one line for status bar and one for mode indicator
         clear();
+
+        // Draw mode indicator first (top-left corner)
+        drawModeIndicator(current_mode);
 
         attron(COLOR_PAIR(COLOR_PAIR_LINE_NUMBERS));
         drawLineNumbers(visible_lines, &editor_buffer);
@@ -56,19 +57,19 @@ int main(int argc, char *argv[]) {
         drawTextContent(visible_lines, &editor_buffer);
 
         // Draw status bar at bottom
-        drawStatusBar(filename, &editor_buffer, special_mode ? command : NULL);
+        drawStatusBar(filename, &editor_buffer, current_mode == MODE_COMMAND ? command : NULL);
 
-        // Fixed cursor positioning
+        // Fixed cursor positioning - account for mode indicator taking up top row
         int cursor_line = get_absolute_line_number(&editor_buffer, editor_buffer.current_line_node);
-        int screen_row = cursor_line - top_line;
+        int screen_row = cursor_line - top_line + 1; // +1 to account for mode indicator row
 
         // Ensure the cursor is visible on screen
-        if (screen_row < 0) {
+        if (screen_row < 1) { // Must be at least row 1 (below mode indicator)
             top_line = cursor_line;
-            screen_row = 0;
-        } else if (screen_row >= visible_lines) {
+            screen_row = 1;
+        } else if (screen_row > visible_lines) {
             top_line = cursor_line - visible_lines + 1;
-            screen_row = visible_lines - 1;
+            screen_row = visible_lines;
         }
 
         move(screen_row, editor_buffer.current_col_offset + 8);
