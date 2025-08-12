@@ -39,12 +39,10 @@ int main(int argc, char *argv[]) {
         editor_buffer.current_col_offset = 0;
     }
 
-    int max_row, max_col;
-
     char command[MAX_COMMAND_LENGTH] = "";
 
     while (1) {
-        getmaxyx(stdscr, max_row, max_col);
+        int max_row = getmaxy(stdscr);
         int visible_lines = max_row - 2; // Reserve one line for status bar and one for mode indicator
         clear();
 
