@@ -4,6 +4,8 @@
 #include "data_structures.h"
 #include "color_config.h"
 
+// testing git
+
 int main(int argc, char *argv[]) {
     initscr();
 
