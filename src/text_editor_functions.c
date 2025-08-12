@@ -1,4 +1,5 @@
 #include "text_editor_functions.h"
+#include "color_config.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,12 +15,12 @@ int special_mode = 0;
 int get_absolute_line_number(TextBuffer *buffer, Line *target_line) {
     int line_num = 0;
     Line *current = buffer->head;
-    
+
     while (current != NULL && current != target_line) {
         line_num++;
         current = current->next;
     }
-    
+
     return line_num;
 }
 
@@ -36,7 +37,10 @@ void drawLineNumbers(int visible_lines, const TextBuffer *buffer) {
     for (int i = 0; i < visible_lines && current_line_node != NULL; ++i) {
         mvprintw(i, 1, "%4d", line_num);
         if (current_line_node == buffer->current_line_node) {
-            mvprintw(i, 5, "->"); // Indicator for the current line
+            // Use cursor line color for the current line indicator
+            attron(COLOR_PAIR(COLOR_PAIR_CURSOR_LINE));
+            mvprintw(i, 5, "->");
+            attroff(COLOR_PAIR(COLOR_PAIR_CURSOR_LINE));
         } else {
             mvprintw(i, 5, "  ");
         }
@@ -54,62 +58,76 @@ void drawTextContent(int visible_lines, const TextBuffer *buffer) {
     }
 
     for (int i = 0; i < visible_lines && current_line_node != NULL; ++i) {
+        // Use main text color for content
+        attron(COLOR_PAIR(COLOR_PAIR_TEXT));
         mvprintw(i, 8, "%s", current_line_node->text);
+        attroff(COLOR_PAIR(COLOR_PAIR_TEXT));
         current_line_node = current_line_node->next;
     }
 }
 
-void drawSpecialMenu(const char *command) {
-    int menu_width = 50;
-    int menu_height = 6;
-    int start_x = (COLS - menu_width) / 2;
-    int start_y = (LINES - menu_height) / 2;
+void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *command) {
+    int max_row, max_col;
+    getmaxyx(stdscr, max_row, max_col);
+    int status_row = max_row - 1;
 
-    // Draw filled rectangle background
-    attron(A_BOLD | COLOR_PAIR(2));
-    for (int y = start_y; y < start_y + menu_height; ++y) {
-        mvhline(y, start_x, ' ', menu_width);
-    }
-    
-    // Draw border
-    mvaddch(start_y, start_x, ACS_ULCORNER);
-    mvaddch(start_y, start_x + menu_width - 1, ACS_URCORNER);
-    mvaddch(start_y + menu_height - 1, start_x, ACS_LLCORNER);
-    mvaddch(start_y + menu_height - 1, start_x + menu_width - 1, ACS_LRCORNER);
-    
-    for (int i = 1; i < menu_width - 1; ++i) {
-        mvaddch(start_y, start_x + i, ACS_HLINE);
-        mvaddch(start_y + menu_height - 1, start_x + i, ACS_HLINE);
-    }
-    
-    for (int i = 1; i < menu_height - 1; ++i) {
-        mvaddch(start_y + i, start_x, ACS_VLINE);
-        mvaddch(start_y + i, start_x + menu_width - 1, ACS_VLINE);
+    // Set background color for status bar
+    attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
+
+    // Clear the status bar line
+    mvhline(status_row, 0, ' ', max_col);
+
+    // Draw filename on the left
+    if (filename != NULL && strlen(filename) > 0) {
+        mvprintw(status_row, 1, "%s", filename);
+    } else {
+        mvprintw(status_row, 1, "[No Name]");
     }
 
-    // Print "Command:" label
-    mvprintw(start_y + 2, start_x + 2, "Command:");
-    
-    // Print the current command
-    mvprintw(start_y + 3, start_x + 2, "> %s", command);
-    
-    // Add a cursor indicator
-    mvaddch(start_y + 3, start_x + 4 + strlen(command), ACS_BLOCK);
-    
-    attroff(A_BOLD | COLOR_PAIR(2));
+    // Draw cursor position on the right
+    int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node) + 1; // 1-based for display
+    int cursor_col = buffer->current_col_offset + 1; // 1-based for display
+    char position_text[50];
+    snprintf(position_text, sizeof(position_text), "Line %d, Col %d", cursor_line, cursor_col);
+    int pos_len = strlen(position_text);
+    mvprintw(status_row, max_col - pos_len - 1, "%s", position_text);
+
+    // If in command mode, show command input
+    if (special_mode && command != NULL) {
+        // Change to command input colors
+        attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
+        attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
+
+        // Clear a section in the middle for the command
+        int command_start = 20; // Start position for command
+        int command_width = max_col - command_start - pos_len - 5; // Leave space for position
+
+        if (command_width > 0) {
+            mvhline(status_row, command_start, ' ', command_width);
+            mvprintw(status_row, command_start, ":%s", command);
+
+            // Add cursor indicator after the command
+            int command_cursor_pos = command_start + 1 + strlen(command);
+            if (command_cursor_pos < max_col - pos_len - 2) {
+                mvaddch(status_row, command_cursor_pos, ' ' | A_BLINK);
+            }
+        }
+
+        attroff(COLOR_PAIR(COLOR_PAIR_COMMAND));
+        attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
+    }
+
+    attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
 }
 
 void handleNormalModeInput(int ch, TextBuffer *buffer) {
     Line *line = buffer->current_line_node;
     size_t current_col = buffer->current_col_offset;
     int max_row, max_col;
-    getmaxyx(stdscr, max_row, max_col); // Fixed: separate variables for row and col
-    
-    // Calculate visible lines (accounting for potential status line)
-    int visible_lines = max_row;
-    if (special_mode) {
-        visible_lines = max_row; // Menu doesn't reduce visible area since it's overlaid
-    }
+    getmaxyx(stdscr, max_row, max_col);
+
+    // Calculate visible lines (subtract 1 for status bar)
+    int visible_lines = max_row - 1;
 
     switch (ch) {
     case 10: // Enter key
@@ -134,7 +152,7 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
     case KEY_BACKSPACE:
     case 127: // Backspace key
         if (current_col > 0) {
-            memmove(&line->text[current_col - 1], &line->text[current_col], 
+            memmove(&line->text[current_col - 1], &line->text[current_col],
                    line->length - current_col + 1);
             line->length--;
             line->text = realloc(line->text, line->length + 1);
@@ -172,7 +190,7 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
 
     case KEY_DC: // Delete key
         if (current_col < line->length) {
-            memmove(&line->text[current_col], &line->text[current_col + 1], 
+            memmove(&line->text[current_col], &line->text[current_col + 1],
                    line->length - current_col);
             line->length--;
             line->text = realloc(line->text, line->length + 1);
@@ -240,8 +258,12 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
         }
         break;
 
-    case 27: // Escape key
-        special_mode = 1 - special_mode; // Toggle special mode
+    case ':': // Colon key - enter command mode
+        special_mode = 1;
+        break;
+
+    case 27: // Escape key - can also toggle special mode
+        special_mode = 1 - special_mode;
         break;
 
     default:
@@ -250,7 +272,7 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
                 line->capacity *= 2;
                 line->text = realloc(line->text, line->capacity);
             }
-            memmove(&line->text[current_col + 1], &line->text[current_col], 
+            memmove(&line->text[current_col + 1], &line->text[current_col],
                    line->length - current_col + 1);
             line->text[current_col] = ch;
             line->length++;
@@ -294,7 +316,7 @@ void handleSpecialModeInput(int ch, char *command, TextBuffer *buffer, const cha
             endwin();
             exit(EXIT_SUCCESS);
         }
-        
+
         command[0] = '\0'; // Reset command buffer
         command_index = 0; // Reset command index
         special_mode = 0;  // Exit special mode
@@ -302,7 +324,7 @@ void handleSpecialModeInput(int ch, char *command, TextBuffer *buffer, const cha
     case 27: // Escape key
         command[0] = '\0'; // Reset command buffer
         command_index = 0; // Reset command index
-        special_mode = 1 - special_mode; // Toggle special mode
+        special_mode = 0; // Exit special mode
         break;
     case KEY_BACKSPACE:
     case 127: // Backspace in command mode
