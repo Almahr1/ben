@@ -13,7 +13,7 @@ Ben is a minimalist, Vim-like file editor built using C. Designed for speed and 
     * `Escape` to toggle between Normal and Special (command) modes.
     * `w` to save the current file.
     * `q` to quit the editor.
-    * 'wq' save the current file and exit ben
+    * `wq` save the current file and exit ben
 
 ---
 
