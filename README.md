@@ -5,15 +5,30 @@ Ben is a minimalist, Vim-like file editor built using C. Designed for speed and 
 
 ---
 
+
 ## Features
 
-* **Insert Mode**: Type and edit text.
-* **Normal Mode**: Navigate through the file.
-* **Basic Commands**:
-    * `Escape` to toggle between Normal and Special (command) modes.
-    * `w` to save the current file.
-    * `q` to quit the editor.
-    * `wq` save the current file and exit ben
+* **Three Editing Modes**:
+    * **Normal Mode**: Navigate and manipulate text
+    * **Insert Mode**: Type and edit content
+    * **Command Mode**: Execute editor commands
+* **Enhanced Navigation**:
+    * Arrow keys and Vim-style `h`, `j`, `k`, `l` movement
+    * Line wrapping support (toggle with `:wrap`/`:nowrap`)
+* **File Operations**:
+    * `:w` - Save file
+    * `:w filename` - Save as new file
+    * `:q` - Quit editor
+    * `:wq` - Save and quit
+* **Text Manipulation**:
+    * Insert/delete characters/lines
+    * Line merging/splitting
+    * `x`/`X` to delete characters under/before cursor
+* **Visual Enhancements**:
+    * Line numbers with current line indicator
+    * Color-coded mode indicators
+    * Status bar with file info and cursor position
+    * Customizable color schemes
 
 ---
 
@@ -71,82 +86,84 @@ To compile and run Ben, you'll need `gcc` (or another C compiler) and the `ncurs
 ## Usage
 
 ### Normal Mode
-
-* **Arrow Keys**: Move the cursor (or `h`, `j`, `k`, `l` once implemented).
-* **`Escape`**: Switch to Special (command) Mode.
+* **Movement**: `h`(left), `j`(down), `k`(up), `l`(right) or arrow keys
+* **Commands**:
+    * `i` - Enter Insert mode at cursor
+    * `a` - Enter Insert mode after cursor
+    * `A` - Enter Insert mode at end of line
+    * `o`/`O` - Insert new line below/above
+    * `x` - Delete character under cursor
+    * `X` - Delete character before cursor
+    * `:` - Enter Command mode
+    * `w` - Toggle line wrapping
+* `Escape` returns to Normal Mode
 
 ### Insert Mode
+* **Typing**: Insert characters directly
+* **Special Keys**:
+    * `Enter` - Split line
+    * `Backspace` - Delete previous character/merge lines
+    * `Delete` - Delete next character/merge with next line
+    * Arrow keys - Move cursor
+* `Escape` returns to Normal Mode
 
-* **Type**: Insert characters directly.
-* **`Enter`**: Insert a new line.
-* **`Backspace`**: Delete the character before the cursor.
-* **`Delete`**: Delete the character under the cursor.
-* **`Escape`**: Switch to Normal Mode.
-
-### Special (Command) Mode
-
-* Press `Escape` from Normal Mode to enter Special Mode.
-* Type your command at the bottom of the screen.
-* **`w`**: Save the file. You will be prompted for a filename if you haven't saved before.
-* **`q`**: Quit the editor.
-* Press `Enter` to execute the command.
-* Press `Escape` to return to Normal Mode without executing a command.
+### Command Mode
+* Press `:` from Normal Mode to enter
+* **Commands**:
+    * `w` - Save file
+    * `w filename` - Save as
+    * `q` - Quit
+    * `wq` - Save and quit
+    * `wrap`/`nowrap` - Toggle line wrapping
+* Press `Enter` to execute or `Escape` to cancel
 
 ---
 
 ### Core Editor Functionality
 
-* **File I/O:**
-    * [x] Load a file from a command-line argument.
-    * [x] Create a new, empty buffer if no file is provided.
-    * [x] Save the current buffer to a file with the command `:w`.
-    * [x] Save the current buffer to a specified filename with the command `:w filename.txt`.
-* **Text Manipulation:**
-    * [x] Insert characters at the cursor position.
-    * [x] Delete characters with `Backspace`.
-    * [x] Delete characters with `Delete` (`KEY_DC`).
-    * [x] Handle line breaks when the `Enter` key is pressed.
-    * [x] Merge lines correctly when `Backspace` is used at the beginning of a line.
-* **Navigation:**
-    * [x] Move the cursor up and down using `KEY_UP` and `KEY_DOWN`.
-    * [x] Move the cursor left and right using `KEY_LEFT` and `KEY_RIGHT`.
-    * [x] Adjust the cursor column when moving between lines of different lengths.
+* **File I/O**:
+    * [x] Load files from command-line
+    * [x] Create new buffers
+    * [x] Save files (`:w`, `:w filename`)
+* **Text Manipulation**:
+    * [x] Character insertion/deletion
+    * [x] Line splitting/merging
+    * [x] Backspace/Delete handling
+* **Navigation**:
+    * [x] Arrow key movement
+    * [x] Vim-style `h`/`j`/`k`/`l` movement
+    * [x] Cross-line column adjustment
+* **User Interface**:
+    * [x] Line numbers with current line indicator
+    * [x] Color-coded mode display
+    * [x] Status bar with file info
+    * [x] Command input area
+    * [x] Customizable color schemes
+* **Advanced Features**:
+    * [x] Line wrapping with toggle
+    * [x] Scrolling viewport
+    * [x] Cursor position tracking
 
 ---
 
-### User Interface & Experience
+### Planned Enhancements
 
-* **Display:**
-    * [x] Draw the text content on the screen.
-    * [x] Draw line numbers in a separate column.
-    * [x] Scroll the view up and down to keep the cursor visible.
-* **Status Bar:**
-    * [x] Display the filename or `[No Name]`.
-    * [x] Display the current cursor position (line and column numbers).
-    * [x] Display the command input area when in special mode.
-    * [ ] Provide feedback messages (e.g., "File saved") for user actions.
-* **Modes & Controls:**
-    * [x] A normal mode for text editing.
-    * [x] A command mode (activated by `:`) for special commands.
-    * [x] Exit the editor with the command `:q`.
-    * [x] Save and exit with the command `:wq`.
-
----
-
-### Planned Enhancements (Not Done)
-
-* **Undo/Redo System:**
-    * [ ] Implement a stack-based undo/redo mechanism to track changes.
-* **Search Functionality:**
-    * [ ] Add a search command (e.g., `/`) to find text within the buffer.
-* **Copy & Paste:**
-    * [ ] Implement a yank/paste buffer for copying and pasting text.
-* **Navigation & Usability:**
-    * [ ] Implement `KEY_HOME` and `KEY_END` to jump to the beginning/end of a line.
-    * [ ] Add a command like `:N` to jump to a specific line number.
-* **Performance:**
-    * [ ] Optimize memory management to reduce frequent `realloc` calls.
-    * [ ] Consider alternative data structures for large files, like a gap buffer, to improve performance.
+* **Editing Operations**:
+    * [ ] Undo/Redo system
+    * [ ] Copy/Paste functionality
+* **Navigation**:
+    * [ ] `HOME`/`END` key support
+    * [ ] `:N` jump to line number
+* **Search & Replace**:
+    * [ ] Text search (`/` command)
+    * [ ] Replace functionality
+* **Performance**:
+    * [ ] Optimized memory management
+    * [ ] Gap buffer implementation
+* **User Experience**:
+    * [ ] Action feedback messages
+    * [ ] Syntax highlighting
+    * [ ] Multiple buffer support
 
 ---
 
