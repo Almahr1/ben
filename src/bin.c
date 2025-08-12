@@ -2,22 +2,22 @@
 #include <stdlib.h>
 #include "text_editor_functions.h"
 #include "data_structures.h"
+#include "color_config.h"
 
 int main(int argc, char *argv[]) {
     initscr();
-    
+
     // Fix escape key delay - set to 25ms instead of default 1000ms
     set_escdelay(25);
-    
+
     start_color();
-    init_pair(1, COLOR_GREEN, COLOR_BLACK);
-    init_pair(2, COLOR_WHITE, COLOR_BLACK);
+    init_editor_colors();  // Initialize all color pairs from config
     cbreak();
     keypad(stdscr, TRUE);
     noecho(); // Disable input echoing
 
     init_editor_buffer();
-    
+
     const char *filename = NULL;
     if (argc > 1) {
         filename = argv[1];
@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
         insert_line_at_end(&editor_buffer, initial_line);
         editor_buffer.current_line_node = initial_line;
     }
-    
+
     // Safety check - ensure we always have at least one line and valid cursor position
     if (editor_buffer.head == NULL) {
         Line *initial_line = create_new_line("");
@@ -45,17 +45,16 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         getmaxyx(stdscr, max_row, max_col);
-        int visible_lines = max_row;
+        int visible_lines = max_row - 1; // Reserve one line for status bar
         clear();
 
-        attron(COLOR_PAIR(1));
+        attron(COLOR_PAIR(COLOR_PAIR_LINE_NUMBERS));
         drawLineNumbers(visible_lines, &editor_buffer);
-        attroff(COLOR_PAIR(1));
+        attroff(COLOR_PAIR(COLOR_PAIR_LINE_NUMBERS));
         drawTextContent(visible_lines, &editor_buffer);
 
-        if (special_mode) {
-            drawSpecialMenu(command); // Now pass the current command
-        }
+        // Draw status bar at bottom
+        drawStatusBar(filename, &editor_buffer, special_mode ? command : NULL);
 
         // Fixed cursor positioning
         int cursor_line = get_absolute_line_number(&editor_buffer, editor_buffer.current_line_node);
