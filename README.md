@@ -1,4 +1,4 @@
-"""
+
 # Ben: A Vim-like File Editor
 
 Ben is a minimalist, Vim-like file editor built using C. Designed for speed and simplicity, it currently features basic text editing capabilities with an emphasis on low-level control.
@@ -153,8 +153,6 @@ To compile and run Ben, you'll need `gcc` (or another C compiler) and the `ncurs
 ## Contributing
 
 Contributions are welcome! If you find a bug, have a feature request, or want to contribute code, please feel free to open an issue or submit a pull request on the GitHub repository.
-
----
 
 ## License
 
