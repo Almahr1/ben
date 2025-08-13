@@ -42,37 +42,37 @@ all: $(TARGET)
 
 # Build main application
 $(TARGET): $(OBJS_MAIN)
-    $(CC) $(OBJS_MAIN) -o $(TARGET) $(LDFLAGS)
+	$(CC) $(OBJS_MAIN) -o $(TARGET) $(LDFLAGS)
 
 # Build test application
 $(TEST_TARGET): $(TEST_EXEC_OBJS)
-    $(CC) $(TEST_EXEC_OBJS) -o $(TEST_TARGET) $(LDFLAGS)
+	$(CC) $(TEST_EXEC_OBJS) -o $(TEST_TARGET) $(LDFLAGS)
 
 # Run tests
 test: $(TEST_TARGET)
-    ./$(TEST_TARGET)
+	./$(TEST_TARGET)
 
 # Compile
 %.o: %.c
-    $(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # Clean
 clean:
-    rm -f $(OBJS_MAIN) $(TEST_OBJS) $(TARGET) $(TEST_TARGET)
+	rm -f $(OBJS_MAIN) $(TEST_OBJS) $(TARGET) $(TEST_TARGET)
 
 # Install
 install: $(TARGET)
-    sudo cp $(TARGET) $(INSTALL_DIR)
-    @echo "Ben has been installed to $(INSTALL_DIR). You can now run 'ben' from anywhere."
+	sudo cp $(TARGET) $(INSTALL_DIR)
+	@echo "Ben has been installed to $(INSTALL_DIR). You can now run 'ben' from anywhere."
 
 # Dependencies
 deps:
 ifeq ($(OS),Linux)
-    sudo apt-get update
-    sudo apt-get install libncurses5-dev libncursesw5-dev
+	sudo apt-get update
+	sudo apt-get install libncurses5-dev libncursesw5-dev
 endif
 ifeq ($(OS),Darwin)
-    brew install ncurses
+	brew install ncurses
 endif
 
 # Header dependencies for the main application
