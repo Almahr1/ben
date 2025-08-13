@@ -30,11 +30,40 @@ void insert_line_after(Line *prev_line, Line *new_line) {
         new_line->next->prev = new_line;
     }
 
+    // Update the buffer's num_lines count
     editor_buffer.num_lines++;
 
     // If the new line is inserted at the end, update the tail
     if (prev_line == editor_buffer.tail) {
         editor_buffer.tail = new_line;
+    }
+}
+
+void insert_line_after_buffer(TextBuffer *buffer, Line *prev_line, Line *new_line) {
+    if (prev_line == NULL) {
+        // This case should ideally be handled by insert_line_at_end if it's the first line.
+        // For safety, let's just do nothing or handle it as an error.
+        return;
+    }
+
+    // Link the new line to the line after the previous line
+    new_line->next = prev_line->next;
+
+    // Link the previous line to the new line
+    prev_line->next = new_line;
+    new_line->prev = prev_line;
+
+    // If there was a line after prev_line, update its 'prev' pointer
+    if (new_line->next != NULL) {
+        new_line->next->prev = new_line;
+    }
+
+    // Update the buffer's num_lines count
+    buffer->num_lines++;
+
+    // If the new line is inserted at the end, update the tail
+    if (prev_line == buffer->tail) {
+        buffer->tail = new_line;
     }
 }
 

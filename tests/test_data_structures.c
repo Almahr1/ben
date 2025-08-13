@@ -75,11 +75,7 @@ void test_text_buffer_initialization(void) {
     TextBuffer buffer;
     
     // Initialize buffer
-    buffer.head = NULL;
-    buffer.tail = NULL;
-    buffer.num_lines = 0;
-    buffer.current_line_node = NULL;
-    buffer.current_col_offset = 0;
+    init_editor_buffer(&buffer);
     
     ASSERT_NULL(buffer.head, "Buffer head should be NULL after initialization");
     ASSERT_NULL(buffer.tail, "Buffer tail should be NULL after initialization");
@@ -90,11 +86,7 @@ void test_text_buffer_initialization(void) {
 
 void test_line_insertion(void) {
     TextBuffer buffer;
-    buffer.head = NULL;
-    buffer.tail = NULL;
-    buffer.num_lines = 0;
-    buffer.current_line_node = NULL;
-    buffer.current_col_offset = 0;
+    init_editor_buffer(&buffer);
     
     // Test inserting first line
     Line *line1 = create_new_line("First line");
@@ -117,9 +109,9 @@ void test_line_insertion(void) {
     ASSERT_EQ(line1, line2->prev, "Second line should point to first line");
     ASSERT_NULL(line2->next, "Second line should have no next line");
     
-    // Test inserting line after first line
+    // Test inserting line after first line using the buffer-aware function
     Line *line3 = create_new_line("Third line");
-    insert_line_after(line1, line3);
+    insert_line_after_buffer(&buffer, line1, line3);
     
     ASSERT_EQ(3, buffer.num_lines, "Buffer should have 3 lines");
     ASSERT_EQ(line3, line1->next, "Line 3 should come after line 1");
@@ -133,11 +125,7 @@ void test_line_insertion(void) {
 
 void test_buffer_traversal(void) {
     TextBuffer buffer;
-    buffer.head = NULL;
-    buffer.tail = NULL;
-    buffer.num_lines = 0;
-    buffer.current_line_node = NULL;
-    buffer.current_col_offset = 0;
+    init_editor_buffer(&buffer);
     
     // Create a buffer with multiple lines
     Line *lines[5];
@@ -186,11 +174,7 @@ void test_buffer_traversal(void) {
 
 void test_buffer_cleanup(void) {
     TextBuffer buffer;
-    buffer.head = NULL;
-    buffer.tail = NULL;
-    buffer.num_lines = 0;
-    buffer.current_line_node = NULL;
-    buffer.current_col_offset = 0;
+    init_editor_buffer(&buffer);
     
     // Create a buffer with lines
     for (int i = 0; i < 3; i++) {

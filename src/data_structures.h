@@ -29,6 +29,7 @@ void init_editor_buffer(TextBuffer *buffer);
 Line* create_new_line(const char *content);
 Line* create_new_line_empty();
 void insert_line_after(Line *prev_line, Line *new_line);
+void insert_line_after_buffer(TextBuffer *buffer, Line *prev_line, Line *new_line);
 void free_editor_buffer(TextBuffer *buffer);
 void insert_line_at_end(TextBuffer *buffer, Line *new_line);
 
