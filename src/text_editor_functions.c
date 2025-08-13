@@ -123,7 +123,9 @@ void drawLineNumbers(int visible_lines, const TextBuffer *buffer) {
     }
 
     while (screen_row <= visible_lines && current_line_node != NULL) {
-        int wrapped_lines = get_wrapped_line_count(current_line_node->text, text_width);
+        char *line_text = line_to_string(current_line_node);
+        int wrapped_lines = line_text ? get_wrapped_line_count(line_text, text_width) : 1;
+        if (line_text) free(line_text);
         
         // Draw line number for the first wrapped line
         attron(COLOR_PAIR(COLOR_PAIR_LINE_NUMBERS));
@@ -164,11 +166,17 @@ void drawTextContent(int visible_lines, const TextBuffer *buffer) {
     }
 
     while (screen_row <= visible_lines && current_line_node != NULL) {
-        // Draw the line with wrapping
-        draw_wrapped_line(screen_row, 8, current_line_node->text, text_width, COLOR_PAIR_TEXT);
-        
-        int wrapped_lines = get_wrapped_line_count(current_line_node->text, text_width);
-        screen_row += wrapped_lines;
+        // Get the line text using gap buffer
+        char *line_text = line_to_string(current_line_node);
+        if (line_text) {
+            // Draw the line with wrapping
+            draw_wrapped_line(screen_row, 8, line_text, text_width, COLOR_PAIR_TEXT);
+            int wrapped_lines = get_wrapped_line_count(line_text, text_width);
+            screen_row += wrapped_lines;
+            free(line_text); // Don't forget to free!
+        } else {
+            screen_row++;
+        }
         current_line_node = current_line_node->next;
     }
 }
@@ -189,7 +197,10 @@ int get_cursor_screen_row(TextBuffer *buffer, int visible_lines) {
 
     // Calculate screen position for each line until we reach the cursor line
     while (current_line_node != NULL && current_line_node != buffer->current_line_node) {
-        int wrapped_lines = get_wrapped_line_count(current_line_node->text, text_width);
+        char *line_text = line_to_string(current_line_node);
+        int wrapped_lines = line_text ? get_wrapped_line_count(line_text, text_width) : 1;
+        if (line_text) free(line_text);
+        
         screen_row += wrapped_lines;
         current_line_node = current_line_node->next;
         line_count++;
@@ -277,8 +288,9 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
     case 'j': // Move down
         if (line->next != NULL) {
             buffer->current_line_node = line->next;
-            if (buffer->current_col_offset > buffer->current_line_node->length) {
-                buffer->current_col_offset = buffer->current_line_node->length;
+            size_t new_line_length = line_get_length(buffer->current_line_node);
+            if (buffer->current_col_offset > new_line_length) {
+                buffer->current_col_offset = new_line_length;
             }
 
             // Check if cursor moved below visible area (accounting for wrapped lines)
@@ -289,20 +301,21 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
         }
         break;
     case 'k': // Move up
-    if (line->prev != NULL) {
-        buffer->current_line_node = line->prev;
-        if (buffer->current_col_offset > buffer->current_line_node->length) {
-            buffer->current_col_offset = buffer->current_line_node->length;
-        }
+        if (line->prev != NULL) {
+            buffer->current_line_node = line->prev;
+            size_t new_line_length = line_get_length(buffer->current_line_node);
+            if (buffer->current_col_offset > new_line_length) {
+                buffer->current_col_offset = new_line_length;
+            }
 
-        // Corrected logic for scrolling up
-        if (get_absolute_line_number(&editor_buffer, buffer->current_line_node) < top_line) {
-            top_line--;
+            // Corrected logic for scrolling up
+            if (get_absolute_line_number(&editor_buffer, buffer->current_line_node) < top_line) {
+                top_line--;
+            }
         }
-    }
-    break;
+        break;
     case 'l': // Move right
-        if (buffer->current_col_offset < line->length) {
+        if (buffer->current_col_offset < line_get_length(line)) {
             buffer->current_col_offset++;
         }
         break;
@@ -326,18 +339,18 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
         current_mode = MODE_INSERT;
         break;
     case 'a': // Enter insert mode after cursor
-        if (buffer->current_col_offset < line->length) {
+        if (buffer->current_col_offset < line_get_length(line)) {
             buffer->current_col_offset++;
         }
         current_mode = MODE_INSERT;
         break;
     case 'A': // Enter insert mode at end of line
-        buffer->current_col_offset = line->length;
+        buffer->current_col_offset = line_get_length(line);
         current_mode = MODE_INSERT;
         break;
     case 'o': // Insert new line below and enter insert mode
         {
-            Line *new_line = create_new_line("");
+            Line *new_line = create_new_line_empty();
             insert_line_after(line, new_line);
             buffer->current_line_node = new_line;
             buffer->current_col_offset = 0;
@@ -352,7 +365,7 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
         break;
     case 'O': // Insert new line above and enter insert mode
         {
-            Line *new_line = create_new_line("");
+            Line *new_line = create_new_line_empty();
             if (line->prev != NULL) {
                 insert_line_after(line->prev, new_line);
             } else {
@@ -395,20 +408,14 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
 
     // Normal mode editing commands
     case 'x': // Delete character under cursor
-        if (current_col < line->length) {
-            memmove(&line->text[current_col], &line->text[current_col + 1],
-                   line->length - current_col);
-            line->length--;
-            line->text = realloc(line->text, line->length + 1);
+        if (current_col < line_get_length(line)) {
+            line_delete_char_at(line, current_col);
         }
         break;
 
     case 'X': // Delete character before cursor
         if (current_col > 0) {
-            memmove(&line->text[current_col - 1], &line->text[current_col],
-                   line->length - current_col + 1);
-            line->length--;
-            line->text = realloc(line->text, line->length + 1);
+            line_delete_char_before(line, current_col);
             buffer->current_col_offset--;
         }
         break;
@@ -439,19 +446,31 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
 
     case 10: // Enter key
         if (line != NULL) {
-            Line *new_line = create_new_line(line->text + current_col);
-            // Truncate the current line
-            line->text[current_col] = '\0';
-            line->length = current_col;
+            // Get the text after cursor position
+            char *line_text = line_to_string(line);
+            if (line_text) {
+                // Create new line with text after cursor
+                Line *new_line = create_new_line(line_text + current_col);
+                
+                // Truncate current line at cursor position
+                gap_buffer_move_cursor_to(line->gb, current_col);
+                // Delete all characters from cursor to end
+                size_t chars_to_delete = line_get_length(line) - current_col;
+                for (size_t i = 0; i < chars_to_delete; i++) {
+                    gap_buffer_delete_char(line->gb);
+                }
+                
+                insert_line_after(line, new_line);
+                buffer->current_line_node = new_line;
+                buffer->current_col_offset = 0;
+                
+                free(line_text);
 
-            insert_line_after(line, new_line);
-            buffer->current_line_node = new_line;
-            buffer->current_col_offset = 0;
-
-            // Check if cursor moved below visible area
-            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
-            if (cursor_screen_row > visible_lines) {
-                top_line++;
+                // Check if cursor moved below visible area
+                int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+                if (cursor_screen_row > visible_lines) {
+                    top_line++;
+                }
             }
         }
         break;
@@ -459,19 +478,19 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
     case KEY_BACKSPACE:
     case 127: // Backspace key
         if (current_col > 0) {
-            memmove(&line->text[current_col - 1], &line->text[current_col],
-                   line->length - current_col + 1);
-            line->length--;
-            line->text = realloc(line->text, line->length + 1);
+            line_delete_char_before(line, current_col);
             buffer->current_col_offset--;
         } else if (line->prev != NULL) {
             Line *prev_line = line->prev;
-            size_t prev_len = prev_line->length;
+            size_t prev_len = line_get_length(prev_line);
 
-            // Merge lines
-            prev_line->text = realloc(prev_line->text, prev_len + line->length + 1);
-            strcat(prev_line->text, line->text);
-            prev_line->length = prev_len + line->length;
+            // Get text from current line to append
+            char *current_text = line_to_string(line);
+            if (current_text) {
+                // Append current line's text to previous line
+                line_insert_string_at(prev_line, prev_len, current_text);
+                free(current_text);
+            }
 
             // Unlink and free current line
             prev_line->next = line->next;
@@ -480,7 +499,7 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
             } else {
                 buffer->tail = prev_line;
             }
-            free(line->text);
+            gap_buffer_destroy(line->gb);
             free(line);
             buffer->num_lines--;
 
@@ -497,19 +516,18 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
         break;
 
     case KEY_DC: // Delete key
-        if (current_col < line->length) {
-            memmove(&line->text[current_col], &line->text[current_col + 1],
-                   line->length - current_col);
-            line->length--;
-            line->text = realloc(line->text, line->length + 1);
+        if (current_col < line_get_length(line)) {
+            line_delete_char_at(line, current_col);
         } else if (line->next != NULL) {
             Line *next_line = line->next;
-            size_t line_len = line->length;
-
-            // Merge lines
-            line->text = realloc(line->text, line_len + next_line->length + 1);
-            strcat(line->text, next_line->text);
-            line->length = line_len + next_line->length;
+            
+            // Get text from next line to append
+            char *next_text = line_to_string(next_line);
+            if (next_text) {
+                // Append next line's text to current line
+                line_insert_string_at(line, line_get_length(line), next_text);
+                free(next_text);
+            }
 
             // Unlink and free next line
             line->next = next_line->next;
@@ -518,7 +536,7 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
             } else {
                 buffer->tail = line;
             }
-            free(next_line->text);
+            gap_buffer_destroy(next_line->gb);
             free(next_line);
             buffer->num_lines--;
         }
@@ -528,8 +546,9 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
     case KEY_UP:
         if (line->prev != NULL) {
             buffer->current_line_node = line->prev;
-            if (buffer->current_col_offset > buffer->current_line_node->length) {
-                buffer->current_col_offset = buffer->current_line_node->length;
+            size_t new_line_length = line_get_length(buffer->current_line_node);
+            if (buffer->current_col_offset > new_line_length) {
+                buffer->current_col_offset = new_line_length;
             }
 
             int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
@@ -543,8 +562,9 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
     case KEY_DOWN:
         if (line->next != NULL) {
             buffer->current_line_node = line->next;
-            if (buffer->current_col_offset > buffer->current_line_node->length) {
-                buffer->current_col_offset = buffer->current_line_node->length;
+            size_t new_line_length = line_get_length(buffer->current_line_node);
+            if (buffer->current_col_offset > new_line_length) {
+                buffer->current_col_offset = new_line_length;
             }
 
             int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
@@ -561,21 +581,14 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
         break;
 
     case KEY_RIGHT:
-        if (buffer->current_col_offset < line->length) {
+        if (buffer->current_col_offset < line_get_length(line)) {
             buffer->current_col_offset++;
         }
         break;
 
     default:
         if (isprint(ch)) {
-            if (line->length + 1 >= line->capacity) {
-                line->capacity *= 2;
-                line->text = realloc(line->text, line->capacity);
-            }
-            memmove(&line->text[current_col + 1], &line->text[current_col],
-                   line->length - current_col + 1);
-            line->text[current_col] = ch;
-            line->length++;
+            line_insert_char_at(line, current_col, ch);
             buffer->current_col_offset++;
         }
         break;
