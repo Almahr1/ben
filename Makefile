@@ -26,7 +26,7 @@ SRCS_MAIN = src/bin.c src/color_config.c src/file_operations.c src/text_editor_f
 OBJS_MAIN = $(SRCS_MAIN:.c=.o)
 
 # Source files for the test suite
-TEST_SRCS = tests/test_framework.c tests/test_gap_buffer.c tests/test_data_structures.c tests/test_file_operations.c
+TEST_SRCS = tests/test_runner.c tests/test_framework.c tests/test_gap_buffer.c tests/test_data_structures.c tests/test_file_operations.c
 TEST_OBJS = $(TEST_SRCS:.c=.o)
 
 # All object files for the test executable
@@ -77,7 +77,7 @@ endif
 
 # Header dependencies for the main application
 src/bin.o: src/bin.c src/text_editor_functions.h src/data_structures.h src/color_config.h
-src/file_operations.o: src/file_operations.c src/data_structures.h src/text_editor_functions.h src/gap_buffer.h
+src/file_operations.o: src/file_operations.c src/data_structures.h src/gap_buffer.h
 src/text_editor_functions.o: src/text_editor_functions.c src/text_editor_functions.h src/color_config.h src/gap_buffer.h
 src/color_config.o: src/color_config.c src/color_config.h
 src/gap_buffer.o: src/gap_buffer.c src/gap_buffer.h

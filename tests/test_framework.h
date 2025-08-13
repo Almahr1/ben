@@ -63,4 +63,40 @@ static int tests_failed = 0;
     } \
 } while (0)
 
+#define ASSERT_TRUE(condition, message) do { \
+    tests_run++; \
+    if (condition) { \
+        tests_passed++; \
+        printf(TEST_COLOR_GREEN "✓ " TEST_COLOR_RESET "%s\n", message); \
+    } else { \
+        tests_failed++; \
+        printf(TEST_COLOR_RED "✗ " TEST_COLOR_RESET "%s\n", message); \
+        printf(TEST_COLOR_RED "  Condition failed: %s at %s:%d\n" TEST_COLOR_RESET, #condition, __FILE__, __LINE__); \
+    } \
+} while (0)
+
+#define ASSERT_FALSE(condition, message) do { \
+    tests_run++; \
+    if (!(condition)) { \
+        tests_passed++; \
+        printf(TEST_COLOR_GREEN "✓ " TEST_COLOR_RESET "%s\n", message); \
+    } else { \
+        tests_failed++; \
+        printf(TEST_COLOR_RED "✗ " TEST_COLOR_RESET "%s\n", message); \
+        printf(TEST_COLOR_RED "  Condition should be false: %s at %s:%d\n" TEST_COLOR_RESET, #condition, __FILE__, __LINE__); \
+    } \
+} while (0)
+
+#define ASSERT_NULL(ptr, message) do { \
+    tests_run++; \
+    if (ptr == NULL) { \
+        tests_passed++; \
+        printf(TEST_COLOR_GREEN "✓ " TEST_COLOR_RESET "%s\n", message); \
+    } else { \
+        tests_failed++; \
+        printf(TEST_COLOR_RED "✗ " TEST_COLOR_RESET "%s\n", message); \
+        printf(TEST_COLOR_RED "  Expected NULL, got non-NULL at %s:%d\n" TEST_COLOR_RESET, __FILE__, __LINE__); \
+    } \
+} while (0)
+
 #endif // TEST_FRAMEWORK_H

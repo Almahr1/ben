@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/text_editor_functions.h" // Corrected header include
+#include "../src/file_operations.c"
 #include "../src/data_structures.h"
 #include <string.h>
 #include <stdio.h>
@@ -9,7 +9,7 @@
 const char* TEST_FILENAME = "test_file.txt";
 
 // Declare the global editor_buffer to be used by the test functions
-extern TextBuffer editor_buffer;
+TextBuffer editor_buffer;
 
 void test_save_and_load_file(void) {
     // Test saving and loading a file with multiple lines
@@ -18,6 +18,7 @@ void test_save_and_load_file(void) {
     // Initialize the global editor_buffer
     init_editor_buffer();
     Line *line1 = create_new_line("Hello world!");
+    editor_buffer.current_line_node = line1;
     insert_line_at_end(&editor_buffer, line1);
     Line *line2 = create_new_line("This is a test file.");
     insert_line_at_end(&editor_buffer, line2);
@@ -96,6 +97,7 @@ void test_load_empty_file(void) {
 
 void run_file_operations_tests(void) {
     TEST_SUITE_START("File Operations Tests");
+    init_editor_buffer();
     
     test_save_and_load_file();
     test_load_empty_file();

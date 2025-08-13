@@ -143,16 +143,15 @@ void test_gap_buffer_capacity_expansion(void) {
     ASSERT_EQ(50, gap_buffer_length(gb), "Buffer should contain 50 characters");
     ASSERT_TRUE(gb->capacity > 16, "Buffer capacity should have expanded");
     
-    // Verify content integrity
+    // Verify content integrity by converting to string
+    char *result = gap_buffer_to_string(gb);
+    char expected[51];
     for (int i = 0; i < 50; i++) {
-        char expected = 'a' + (i % 26);
-        char actual = gap_buffer_get_char_at(gb, i);
-        if (expected != actual) {
-            ASSERT_TRUE(0, "Character mismatch after capacity expansion");
-            break;
-        }
+        expected[i] = 'a' + (i % 26);
     }
-    ASSERT_TRUE(1, "All characters preserved after capacity expansion");
+    expected[50] = '\0';
+    ASSERT_STR_EQ(expected, result, "All characters preserved after capacity expansion");
+    free(result);
     
     gap_buffer_destroy(gb);
 }
