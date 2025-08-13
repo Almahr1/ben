@@ -11,9 +11,14 @@
 #define TEST_COLOR_BLUE    "\033[34m"
 #define TEST_COLOR_RESET   "\033[0m"
 
-static int tests_run = 0;
-static int tests_passed = 0;
-static int tests_failed = 0;
+// Global variables - declared here, defined in test_framework.c
+extern int tests_run;
+extern int tests_passed;
+extern int tests_failed;
+
+// Function declarations
+void init_test_framework(void);
+void print_test_summary(void);
 
 #define TEST_CASE_START(name) printf(TEST_COLOR_BLUE "\n--- %s ---\n" TEST_COLOR_RESET, name)
 #define TEST_CASE_END()
@@ -35,7 +40,7 @@ static int tests_failed = 0;
     } else { \
         tests_failed++; \
         printf(TEST_COLOR_RED "✗ " TEST_COLOR_RESET "%s\n", message); \
-        printf(TEST_COLOR_RED "  Expected: %d, Got: %d at %s:%d\n" TEST_COLOR_RESET, (int)(expected), (int)(actual), __FILE__, __LINE__); \
+        printf(TEST_COLOR_RED "  Expected: %ld, Got: %ld at %s:%d\n" TEST_COLOR_RESET, (long)(expected), (long)(actual), __FILE__, __LINE__); \
     } \
 } while (0)
 

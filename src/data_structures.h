@@ -24,7 +24,8 @@ typedef struct TextBuffer {
 // Global instance of the text buffer
 extern TextBuffer editor_buffer;
 
-void init_editor_buffer();
+// Function declarations
+void init_editor_buffer(TextBuffer *buffer);
 Line* create_new_line(const char *content);
 Line* create_new_line_empty();
 void insert_line_after(Line *prev_line, Line *new_line);

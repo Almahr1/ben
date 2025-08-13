@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
     keypad(stdscr, TRUE);
     noecho(); // Disable input echoing
 
-    init_editor_buffer();
+    init_editor_buffer(&editor_buffer);
 
     const char *filename = NULL;
     if (argc > 1) {

@@ -3,10 +3,18 @@
 #include <string.h>
 #include <stdlib.h>
 
+// Global variables - defined here
+int tests_run = 0;
+int tests_passed = 0;
+int tests_failed = 0;
+
 const char* current_test_case_name = NULL;
 
 void init_test_framework(void) {
     printf(TEST_COLOR_BLUE "Initializing Test Framework...\n" TEST_COLOR_RESET);
+    tests_run = 0;
+    tests_passed = 0;
+    tests_failed = 0;
 }
 
 void print_test_summary(void) {

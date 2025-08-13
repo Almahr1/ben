@@ -38,12 +38,12 @@ void insert_line_after(Line *prev_line, Line *new_line) {
     }
 }
 
-void init_editor_buffer() {
-    editor_buffer.head = NULL;
-    editor_buffer.tail = NULL;
-    editor_buffer.num_lines = 0;
-    editor_buffer.current_line_node = NULL;
-    editor_buffer.current_col_offset = 0;
+void init_editor_buffer(TextBuffer *buffer) {
+    buffer->head = NULL;
+    buffer->tail = NULL;
+    buffer->num_lines = 0;
+    buffer->current_line_node = NULL;
+    buffer->current_col_offset = 0;
 }
 
 Line* create_new_line(const char *content) {
@@ -138,7 +138,7 @@ void loadFromFile(const char *filename, TextBuffer *buffer) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
         // File doesn't exist - create a new empty buffer with one line
-        init_editor_buffer();
+        init_editor_buffer(buffer);
         Line *initial_line = create_new_line_empty();
         insert_line_at_end(buffer, initial_line);
         buffer->current_line_node = initial_line;
