@@ -1,72 +1,67 @@
-# Detect operating system and set compiler/linker options
+# Detect OS
+UNAME_S := $(shell uname -s)
+
 ifeq ($(OS),Windows_NT)
     CC = gcc
     LDFLAGS = -lpdcurses
     TARGET = ben.exe
-else
-    # Linux/macOS settings
+else ifeq ($(UNAME_S),Linux)
     CC = gcc
     LDFLAGS = -lcurses
     TARGET = ben
+else ifeq ($(UNAME_S),Darwin)
+    CC = gcc
+    LDFLAGS = -lcurses
+    TARGET = ben
+else
+    $(error Unsupported OS: $(UNAME_S))
 endif
 
-# Define compilation flags
-# -Wall: Enable all common warnings
-# -Wextra: Enable extra warnings
-# -std=c11: Use the C11 standard
-# -g: Include debugging information (for gdb)
-# -Isrc: Look for header files in the src directory
+# Compilation flags
 CFLAGS = -Wall -Wextra -std=c11 -g -Isrc
 
-# Define source files inside the src directory (including new gap_buffer.c)
+# Source files
 SRCS = src/bin.c src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c
-
-# Automatically generate object file names from source files
 OBJS = $(SRCS:.c=.o)
 
-# Define installation directory
+# Install directory
 INSTALL_DIR = /usr/local/bin
 
 .PHONY: all clean install deps
 
-# Default target: builds the executable
+# Default target
 all: $(TARGET)
 
-# Rule to link the main executable
+# Link
 $(TARGET): $(OBJS)
-    $(CC) $(OBJS) -o $(TARGET) $(LDFLAGS)
+	$(CC) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
-# Rule to compile .c files into .o files
+# Compile
 %.o: %.c
-    $(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# Rule to clean up compiled files
+# Clean
 clean:
-    rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET)
 
-# Rule to install the executable
-# This will copy the compiled 'ben' executable to the INSTALL_DIR
-# Use 'sudo make install' to run this command
+# Install
 install: $(TARGET)
-    sudo cp $(TARGET) $(INSTALL_DIR)
-    @echo "Ben has been installed to $(INSTALL_DIR). You can now run 'ben' from anywhere."
+	sudo cp $(TARGET) $(INSTALL_DIR)
+	@echo "Ben has been installed to $(INSTALL_DIR). You can now run 'ben' from anywhere."
 
-# Install development dependencies
+# Dependencies
 deps:
 ifeq ($(OS),Windows_NT)
-    @echo "Please install PDCurses manually on Windows"
-    @echo "You can download it from: https://github.com/wmcbrine/PDCurses"
-else
-    ifeq ($(shell uname -s),Linux)
-    sudo apt-get update
-    sudo apt-get install libncurses5-dev libncursesw5-dev
-    endif
-    ifeq ($(shell uname -s),Darwin)
-    brew install ncurses
-    endif
+	@echo "Please install PDCurses manually on Windows"
+	@echo "You can download it from: https://github.com/wmcbrine/PDCurses"
+else ifeq ($(UNAME_S),Linux)
+	sudo apt-get update
+	sudo apt-get install libncurses5-dev libncursesw5-dev
+else ifeq ($(UNAME_S),Darwin)
+	brew install ncurses
 endif
 
-# Dependency rules for proper rebuilding
+# Header dependencies
 src/bin.o: src/bin.c src/text_editor_functions.h src/data_structures.h src/color_config.h
 src/file_operations.o: src/file_operations.c src/data_structures.h src/text_editor_functions.h src/gap_buffer.h
 src/text_editor_functions.o: src/text_editor_functions.c src/text_editor_functions.h src/color_config.h src/gap_buffer.h
