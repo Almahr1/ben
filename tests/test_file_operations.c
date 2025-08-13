@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/file_operations.h"
+#include "../src/text_editor_functions.h" // Corrected header include
 #include "../src/data_structures.h"
 #include <string.h>
 #include <stdio.h>
@@ -8,11 +8,14 @@
 // A global filename for testing
 const char* TEST_FILENAME = "test_file.txt";
 
+// Declare the global editor_buffer to be used by the test functions
+extern TextBuffer editor_buffer;
+
 void test_save_and_load_file(void) {
     // Test saving and loading a file with multiple lines
     TEST_CASE_START("saveToFile and loadFromFile - multiple lines");
     
-    // Create a text buffer with some content
+    // Initialize the global editor_buffer
     init_editor_buffer();
     Line *line1 = create_new_line("Hello world!");
     insert_line_at_end(&editor_buffer, line1);
@@ -23,14 +26,14 @@ void test_save_and_load_file(void) {
     Line *line4 = create_new_line("The end.");
     insert_line_at_end(&editor_buffer, line4);
 
-    // Save the buffer to a file
+    // Save the buffer to a file, passing the buffer as the second argument
     saveToFile(TEST_FILENAME, &editor_buffer);
 
-    // Free the current buffer
+    // Free the current buffer and re-initialize it for the load test
     free_editor_buffer(&editor_buffer);
     init_editor_buffer();
 
-    // Load the file into a new buffer
+    // Load the file into the global buffer, passing the buffer as the second argument
     loadFromFile(TEST_FILENAME, &editor_buffer);
     
     // Assert that the content and number of lines are correct
@@ -66,11 +69,14 @@ void test_load_empty_file(void) {
     // Test loading a non-existent or empty file
     TEST_CASE_START("loadFromFile - empty file");
     
+    // Initialize the global editor_buffer
+    init_editor_buffer();
+    
     // Create an empty file
     FILE *fp = fopen(TEST_FILENAME, "w");
-    fclose(fp);
+    if (fp) fclose(fp);
 
-    init_editor_buffer();
+    // Load the file, passing the buffer as the second argument
     loadFromFile(TEST_FILENAME, &editor_buffer);
 
     // Assert that a single, empty line is created
@@ -80,7 +86,7 @@ void test_load_empty_file(void) {
     
     char* content = line_to_string(editor_buffer.head);
     ASSERT_STR_EQ("", content, "The line should be empty");
-    free(content);
+    free(content); // Free the string from line_to_string
 
     // Clean up
     free_editor_buffer(&editor_buffer);
