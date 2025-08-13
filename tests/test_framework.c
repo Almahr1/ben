@@ -3,10 +3,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-// Definitions of the global test counters
-int tests_run = 0;
-int tests_passed = 0;
-int tests_failed = 0;
 const char* current_test_case_name = NULL;
 
 void init_test_framework(void) {
