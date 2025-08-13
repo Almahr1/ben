@@ -36,6 +36,9 @@ Ben is a minimalist, Vim-like file editor built using C. Designed for speed and 
 
 Ben relies on the `ncurses` library for terminal user interface functionality. Here's how to install it on various Linux distributions:
 
+### Windows
+ ** Please Refer to windows.md for installation guide **
+
 ### Ubuntu/Debian
 
 ```bash
