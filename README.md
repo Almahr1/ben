@@ -175,3 +175,6 @@ Contributions are welcome! If you find a bug, have a feature request, or want to
 
 This project is licensed under the MIT License - see the `LICENSE` file for details.
 
+
+## Daily Message
+ 14/8/2025: couldnt work alot today due to hospital stuff
