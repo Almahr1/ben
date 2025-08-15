@@ -219,7 +219,7 @@ int get_cursor_screen_row(TextBuffer *buffer, int visible_lines) {
     return screen_row;
 }
 
-void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *command, ) {
+void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *command) {
     int max_row, max_col;
     getmaxyx(stdscr, max_row, max_col);
     int status_row = max_row - 1;
