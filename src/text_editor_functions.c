@@ -18,7 +18,7 @@ int line_wrap_enabled = 1; // Enable line wrapping by default
 // Globals for temp messages - improved system
 static char temp_message[256] = "";
 static int temp_message_timer = 0;
-static const int TEMP_MESSAGE_DURATION = 180; // About 3 seconds at 60fps
+static const int TEMP_MESSAGE_DURATION = 5; // About 3 seconds at 60fps
 
 // Helper function to set a temporary message
 void set_temp_message(const char *message) {
