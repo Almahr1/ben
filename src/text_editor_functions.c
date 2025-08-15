@@ -265,38 +265,43 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
     mvprintw(status_row, max_col - pos_len - 1, "%s", position_text);
 
     // Handle temporary messages - they should not block command input
+    // First, check if we have a temp message and decrement timer
+    if (temp_message_timer > 0) {
+        temp_message_timer--;
+        
+        // If timer expired, clear the message
+        if (temp_message_timer <= 0) {
+            temp_message[0] = '\0';
+            temp_message_timer = 0;
+        }
+    }
+    
+    // Now check if we should display temp message
     if (temp_message_timer > 0 && temp_message[0] != '\0') {
         // If in command mode, clear temp message to make room for command
         if (current_mode == MODE_COMMAND) {
-            clear_temp_message();
+            temp_message[0] = '\0';
+            temp_message_timer = 0;
         } else {
-            // Decrease timer first
-            temp_message_timer--;
-            
-            // Check if timer expired AFTER decrementing
-            if (temp_message_timer <= 0) {
-                clear_temp_message();
-            } else {
-                // Show temp message in command area (but not blocking)
-                attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
-                attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
+            // Show temp message in command area (but not blocking)
+            attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
+            attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
 
-                // Calculate command display area
-                int command_start = 20;
-                int command_width = max_col - command_start - pos_len - 5;
+            // Calculate command display area
+            int command_start = 20;
+            int command_width = max_col - command_start - pos_len - 5;
 
-                if (command_width > 0) {
-                    mvhline(status_row, command_start, ' ', command_width);
-                    mvprintw(status_row, command_start, "%s", temp_message);
-                }
-
-                attroff(COLOR_PAIR(COLOR_PAIR_COMMAND));
-                attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
+            if (command_width > 0) {
+                mvhline(status_row, command_start, ' ', command_width);
+                mvprintw(status_row, command_start, "%s", temp_message);
             }
+
+            attroff(COLOR_PAIR(COLOR_PAIR_COMMAND));
+            attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
         }
     }
 
-    // If in command mode and no temp message is blocking, show command input
+    // If in command mode and no temp message is showing, show command input
     if (current_mode == MODE_COMMAND && !(temp_message_timer > 0 && temp_message[0] != '\0') && command != NULL) {
         // Change to command input colors
         attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
