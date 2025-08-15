@@ -15,6 +15,10 @@ int top_line = 0;
 EditorMode current_mode = MODE_NORMAL;
 int line_wrap_enabled = 1; // Enable line wrapping by default
 
+// Globals for temp messages
+static char temp_message[256] = "";
+static int temp_message_timer = 0;
+
 // Helper function to get absolute line number
 int get_absolute_line_number(TextBuffer *buffer, Line *target_line) {
     int line_num = 0;
@@ -215,10 +219,11 @@ int get_cursor_screen_row(TextBuffer *buffer, int visible_lines) {
     return screen_row;
 }
 
-void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *command) {
+void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *command, ) {
     int max_row, max_col;
     getmaxyx(stdscr, max_row, max_col);
     int status_row = max_row - 1;
+
 
     // Set background color for status bar
     attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
@@ -241,7 +246,38 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
     int pos_len = strlen(position_text);
     mvprintw(status_row, max_col - pos_len - 1, "%s", position_text);
 
+
+    if (temp_message_timer > 0) {
+        temp_message_timer--;
+
+        // Use the same color as command input
+        attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
+        attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
+
+        // Clear the command input area
+        int command_start = 20;
+        int command_width = max_col - command_start - strlen(position_text) - 5;
+
+        if (command_width > 0) {
+            mvhline(status_row, command_start, ' ', command_width);
+
+            // Draw the temp message in command-style
+            mvprintw(status_row, command_start, "%s", temp_message);
+        }
+
+        attroff(COLOR_PAIR(COLOR_PAIR_COMMAND));
+        attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR)); // Restore normal status bar color
+
+        if (temp_message_timer == 0) {
+            temp_message[0] = '\0';
+        }
+
+        return; // Skip rest of status bar drawing
+    }
+
+
     // If in command mode, show command input
+    // also implement timer 
     if (current_mode == MODE_COMMAND && command != NULL) {
         // Change to command input colors
         attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
@@ -607,6 +643,9 @@ void handleCommandModeInput(int ch, char *command, TextBuffer *buffer, const cha
             if (filename != NULL && strlen(filename) > 0) {
                 saveToFile(filename, buffer);
                 // You could add some feedback here
+            } else {
+                snprintf(temp_message, sizeof(temp_message), "Please Enter A Filename To Write To");
+                temp_message_timer = 60;
             }
         } else if (strncmp(command, "w ", 2) == 0) {
             // Save with specified filename: "w filename.txt"
