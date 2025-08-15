@@ -266,32 +266,32 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
 
     // Handle temporary messages - they should not block command input
     if (has_temp_message()) {
-        // Decrease timer
-        temp_message_timer--;
-        
         // If in command mode, clear temp message to make room for command
         if (current_mode == MODE_COMMAND) {
             clear_temp_message();
         } else {
-            // Show temp message in command area (but not blocking)
-            attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
-            attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
-
-            // Calculate command display area
-            int command_start = 20;
-            int command_width = max_col - command_start - pos_len - 5;
-
-            if (command_width > 0) {
-                mvhline(status_row, command_start, ' ', command_width);
-                mvprintw(status_row, command_start, "%s", temp_message);
-            }
-
-            attroff(COLOR_PAIR(COLOR_PAIR_COMMAND));
-            attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
-
-            // Clear message when timer expires
+            // Decrease timer first
+            temp_message_timer--;
+            
+            // Check if timer expired BEFORE showing message
             if (temp_message_timer <= 0) {
                 clear_temp_message();
+            } else {
+                // Show temp message in command area (but not blocking)
+                attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
+                attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
+
+                // Calculate command display area
+                int command_start = 20;
+                int command_width = max_col - command_start - pos_len - 5;
+
+                if (command_width > 0) {
+                    mvhline(status_row, command_start, ' ', command_width);
+                    mvprintw(status_row, command_start, "%s", temp_message);
+                }
+
+                attroff(COLOR_PAIR(COLOR_PAIR_COMMAND));
+                attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
             }
         }
     }
