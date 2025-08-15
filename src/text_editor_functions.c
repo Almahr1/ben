@@ -15,27 +15,23 @@ int top_line = 0;
 EditorMode current_mode = MODE_NORMAL;
 int line_wrap_enabled = 1; // Enable line wrapping by default
 
-// Globals for temp messages - improved system
+// Globals for temp messages - simple persistent system
 static char temp_message[256] = "";
-static int temp_message_timer = 0;
-static const int TEMP_MESSAGE_DURATION = 1; // About 3 seconds at 60fps
 
 // Helper function to set a temporary message
 void set_temp_message(const char *message) {
     strncpy(temp_message, message, sizeof(temp_message) - 1);
     temp_message[sizeof(temp_message) - 1] = '\0';
-    temp_message_timer = TEMP_MESSAGE_DURATION;
 }
 
 // Helper function to clear temporary message
 void clear_temp_message(void) {
     temp_message[0] = '\0';
-    temp_message_timer = 0;
 }
 
 // Helper function to check if temp message is active
 int has_temp_message(void) {
-    return temp_message_timer > 0 && temp_message[0] != '\0';
+    return temp_message[0] != '\0';
 }
 
 // Helper function to get absolute line number
@@ -264,26 +260,13 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
     int pos_len = strlen(position_text);
     mvprintw(status_row, max_col - pos_len - 1, "%s", position_text);
 
-    // Handle temporary messages - they should not block command input
-    // First, check if we have a temp message and decrement timer
-    if (temp_message_timer > 0) {
-        temp_message_timer--;
-        
-        // If timer expired, clear the message
-        if (temp_message_timer <= 0) {
-            temp_message[0] = '\0';
-            temp_message_timer = 0;
-        }
-    }
-    
-    // Now check if we should display temp message
-    if (temp_message_timer > 0 && temp_message[0] != '\0') {
+    // Handle temporary messages - simple display
+    if (has_temp_message()) {
         // If in command mode, clear temp message to make room for command
         if (current_mode == MODE_COMMAND) {
-            temp_message[0] = '\0';
-            temp_message_timer = 0;
+            clear_temp_message();
         } else {
-            // Show temp message in command area (but not blocking)
+            // Show temp message in command area
             attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
             attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
 
@@ -302,7 +285,7 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
     }
 
     // If in command mode and no temp message is showing, show command input
-    if (current_mode == MODE_COMMAND && !(temp_message_timer > 0 && temp_message[0] != '\0') && command != NULL) {
+    if (current_mode == MODE_COMMAND && !has_temp_message() && command != NULL) {
         // Change to command input colors
         attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
         attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
