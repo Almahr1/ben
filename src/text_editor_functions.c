@@ -15,9 +15,28 @@ int top_line = 0;
 EditorMode current_mode = MODE_NORMAL;
 int line_wrap_enabled = 1; // Enable line wrapping by default
 
-// Globals for temp messages
+// Globals for temp messages - improved system
 static char temp_message[256] = "";
 static int temp_message_timer = 0;
+static const int TEMP_MESSAGE_DURATION = 180; // About 3 seconds at 60fps
+
+// Helper function to set a temporary message
+void set_temp_message(const char *message) {
+    strncpy(temp_message, message, sizeof(temp_message) - 1);
+    temp_message[sizeof(temp_message) - 1] = '\0';
+    temp_message_timer = TEMP_MESSAGE_DURATION;
+}
+
+// Helper function to clear temporary message
+void clear_temp_message(void) {
+    temp_message[0] = '\0';
+    temp_message_timer = 0;
+}
+
+// Helper function to check if temp message is active
+int has_temp_message(void) {
+    return temp_message_timer > 0 && temp_message[0] != '\0';
+}
 
 // Helper function to get absolute line number
 int get_absolute_line_number(TextBuffer *buffer, Line *target_line) {
@@ -224,7 +243,6 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
     getmaxyx(stdscr, max_row, max_col);
     int status_row = max_row - 1;
 
-
     // Set background color for status bar
     attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
 
@@ -246,39 +264,40 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
     int pos_len = strlen(position_text);
     mvprintw(status_row, max_col - pos_len - 1, "%s", position_text);
 
-
-    if (temp_message_timer > 0) {
+    // Handle temporary messages - they should not block command input
+    if (has_temp_message()) {
+        // Decrease timer
         temp_message_timer--;
+        
+        // If in command mode, clear temp message to make room for command
+        if (current_mode == MODE_COMMAND) {
+            clear_temp_message();
+        } else {
+            // Show temp message in command area (but not blocking)
+            attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
+            attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
 
-        // Use the same color as command input
-        attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
-        attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
+            // Calculate command display area
+            int command_start = 20;
+            int command_width = max_col - command_start - pos_len - 5;
 
-        // Clear the command input area
-        int command_start = 20;
-        int command_width = max_col - command_start - strlen(position_text) - 5;
+            if (command_width > 0) {
+                mvhline(status_row, command_start, ' ', command_width);
+                mvprintw(status_row, command_start, "%s", temp_message);
+            }
 
-        if (command_width > 0) {
-            mvhline(status_row, command_start, ' ', command_width);
+            attroff(COLOR_PAIR(COLOR_PAIR_COMMAND));
+            attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
 
-            // Draw the temp message in command-style
-            mvprintw(status_row, command_start, "%s", temp_message);
+            // Clear message when timer expires
+            if (temp_message_timer <= 0) {
+                clear_temp_message();
+            }
         }
-
-        attroff(COLOR_PAIR(COLOR_PAIR_COMMAND));
-        attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR)); // Restore normal status bar color
-
-        if (temp_message_timer == 0) {
-            temp_message[0] = '\0';
-        }
-
-        return; // Skip rest of status bar drawing
     }
 
-
-    // If in command mode, show command input
-    // also implement timer 
-    if (current_mode == MODE_COMMAND && command != NULL) {
+    // If in command mode and no temp message is blocking, show command input
+    if (current_mode == MODE_COMMAND && !has_temp_message() && command != NULL) {
         // Change to command input colors
         attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
         attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
@@ -431,15 +450,20 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
 
     case ':': // Enter command mode
         current_mode = MODE_COMMAND;
+        // Clear any existing temp message when entering command mode
+        clear_temp_message();
         break;
 
     case 27: // Escape key - should stay in normal mode
         current_mode = MODE_NORMAL;
+        // Clear temp message on escape
+        clear_temp_message();
         break;
 
     // Toggle line wrapping
     case 'w': // Toggle line wrap
         line_wrap_enabled = !line_wrap_enabled;
+        set_temp_message(line_wrap_enabled ? "Line wrap enabled" : "Line wrap disabled");
         break;
 
     // Normal mode editing commands
@@ -642,16 +666,16 @@ void handleCommandModeInput(int ch, char *command, TextBuffer *buffer, const cha
         } else if (strcmp(command, "w") == 0) {
             if (filename != NULL && strlen(filename) > 0) {
                 saveToFile(filename, buffer);
-                // You could add some feedback here
+                set_temp_message("File saved");
             } else {
-                snprintf(temp_message, sizeof(temp_message), "Please Enter A Filename To Write To");
-                temp_message_timer = 60;
+                set_temp_message("Error: No filename specified");
             }
         } else if (strncmp(command, "w ", 2) == 0) {
             // Save with specified filename: "w filename.txt"
             const char *save_filename = command + 2; // Skip "w "
             if (strlen(save_filename) > 0) {
                 saveToFile(save_filename, buffer);
+                set_temp_message("File saved");
             }
         } else if (strcmp(command, "wq") == 0) {
             if (filename != NULL && strlen(filename) > 0) {
@@ -669,10 +693,14 @@ void handleCommandModeInput(int ch, char *command, TextBuffer *buffer, const cha
             exit(EXIT_SUCCESS);
         } else if (strcmp(command, "wrap") == 0) {
             // Toggle line wrapping
-            line_wrap_enabled = !line_wrap_enabled;
+            line_wrap_enabled = 1;
+            set_temp_message("Line wrap enabled");
         } else if (strcmp(command, "nowrap") == 0) {
             // Disable line wrapping
             line_wrap_enabled = 0;
+            set_temp_message("Line wrap disabled");
+        } else {
+            set_temp_message("Unknown command");
         }
 
         command[0] = '\0'; // Reset command buffer

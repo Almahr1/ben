@@ -38,6 +38,11 @@ int get_wrapped_line_count(const char *text, int max_width);
 void draw_wrapped_line(int row, int col, const char *text, int max_width, int color_pair);
 int get_cursor_screen_row(TextBuffer *buffer, int visible_lines);
 
+// Temporary message functions
+void set_temp_message(const char *message);
+void clear_temp_message(void);
+int has_temp_message(void);
+
 // Input handling
 void handleNormalModeInput(int ch, TextBuffer *buffer);
 void handleInsertModeInput(int ch, TextBuffer *buffer);
