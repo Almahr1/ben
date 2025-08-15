@@ -11,6 +11,7 @@
 
 int main(int argc, char *argv[]) {
     initscr();
+    nodelay(stdscr, TRUE);
 
     // Fix escape key delay - set to 25ms instead of default 1000ms
     set_escdelay(25);
