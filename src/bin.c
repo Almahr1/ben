@@ -4,7 +4,6 @@
 #include <curses.h>
 #endif
 
-#include <stdlib.h>
 #include "text_editor_functions.h"
 #include "data_structures.h"
 #include "color_config.h"

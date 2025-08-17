@@ -1,6 +1,5 @@
 #include "test_framework.h"
 #include "../src/gap_buffer.h"
-#include <string.h>
 
 void test_gap_buffer_creation(void) {
     // Test normal creation

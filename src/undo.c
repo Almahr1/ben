@@ -2,7 +2,6 @@
 
 #include "undo.h"
 #include "data_structures.h"
-#include "text_editor_functions.h"
 #include <string.h>
 #include <stdlib.h>
 
