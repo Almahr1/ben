@@ -1,6 +1,7 @@
 #include "test_framework.h"
 #include "../src/data_structures.h"
 #include "../src/gap_buffer.h"
+#include "../src/editor_state.h"
 #include <string.h>
 
 void test_line_creation(void) {
@@ -71,61 +72,87 @@ void test_line_operations(void) {
     free(line);
 }
 
-void test_text_buffer_initialization(void) {
-    TextBuffer buffer;
+void test_editor_state_initialization(void) {
+    EditorState state;
     
-    // Initialize buffer
-    init_editor_buffer(&buffer);
+    // Test initialization without filename
+    init_editor_state(&state, NULL);
     
-    ASSERT_NULL(buffer.head, "Buffer head should be NULL after initialization");
-    ASSERT_NULL(buffer.tail, "Buffer tail should be NULL after initialization");
-    ASSERT_EQ(0, buffer.num_lines, "Buffer should have 0 lines after initialization");
-    ASSERT_NULL(buffer.current_line_node, "Current line should be NULL after initialization");
-    ASSERT_EQ(0, buffer.current_col_offset, "Column offset should be 0 after initialization");
+    ASSERT_NOT_NULL(state.buffer.head, "Buffer should have at least one line after initialization");
+    ASSERT_NOT_NULL(state.buffer.tail, "Buffer tail should not be NULL after initialization");
+    ASSERT_EQ(1, state.buffer.num_lines, "Buffer should have 1 line after initialization");
+    ASSERT_NOT_NULL(state.buffer.current_line_node, "Current line should not be NULL after initialization");
+    ASSERT_EQ(0, state.buffer.current_col_offset, "Column offset should be 0 after initialization");
+    ASSERT_EQ(MODE_NORMAL, state.current_mode, "Should start in normal mode");
+    ASSERT_EQ(0, state.top_line, "Top line should be 0");
+    ASSERT_EQ(1, state.line_wrap_enabled, "Line wrap should be enabled by default");
+    ASSERT_NULL(state.filename, "Filename should be NULL when none provided");
+    
+    free_editor_state(&state);
 }
 
-void test_line_insertion(void) {
-    TextBuffer buffer;
-    init_editor_buffer(&buffer);
+void test_editor_state_with_filename(void) {
+    EditorState state;
+    const char *test_filename = "test_editor_state.txt";
     
-    // Test inserting first line
-    Line *line1 = create_new_line("First line");
-    insert_line_at_end(&buffer, line1);
+    // Create a test file
+    FILE *fp = fopen(test_filename, "w");
+    if (fp) {
+        fprintf(fp, "Line 1\nLine 2\nLine 3\n");
+        fclose(fp);
+    }
     
-    ASSERT_EQ(line1, buffer.head, "First line should be buffer head");
-    ASSERT_EQ(line1, buffer.tail, "First line should be buffer tail");
-    ASSERT_EQ(1, buffer.num_lines, "Buffer should have 1 line");
-    ASSERT_NULL(line1->prev, "First line should have no previous line");
-    ASSERT_NULL(line1->next, "First line should have no next line");
+    // Test initialization with filename
+    init_editor_state(&state, test_filename);
     
-    // Test inserting second line
-    Line *line2 = create_new_line("Second line");
-    insert_line_at_end(&buffer, line2);
+    ASSERT_NOT_NULL(state.buffer.head, "Buffer should have lines after loading file");
+    ASSERT_EQ(3, state.buffer.num_lines, "Buffer should have 3 lines from file");
+    ASSERT_NOT_NULL(state.buffer.current_line_node, "Current line should be set");
+    ASSERT_EQ(state.buffer.head, state.buffer.current_line_node, "Current line should be first line");
+    ASSERT_EQ(0, state.buffer.current_col_offset, "Column should start at 0");
+    ASSERT_STR_EQ(test_filename, state.filename, "Filename should be stored correctly");
     
-    ASSERT_EQ(line1, buffer.head, "First line should still be buffer head");
-    ASSERT_EQ(line2, buffer.tail, "Second line should be buffer tail");
-    ASSERT_EQ(2, buffer.num_lines, "Buffer should have 2 lines");
-    ASSERT_EQ(line2, line1->next, "First line should point to second line");
-    ASSERT_EQ(line1, line2->prev, "Second line should point to first line");
-    ASSERT_NULL(line2->next, "Second line should have no next line");
+    // Test line content
+    char *first_line_content = line_to_string(state.buffer.head);
+    ASSERT_STR_EQ("Line 1", first_line_content, "First line should contain correct content");
+    free(first_line_content);
     
-    // Test inserting line after first line using the buffer-aware function
-    Line *line3 = create_new_line("Third line");
-    insert_line_after_buffer(&buffer, line1, line3);
-    
-    ASSERT_EQ(3, buffer.num_lines, "Buffer should have 3 lines");
-    ASSERT_EQ(line3, line1->next, "Line 3 should come after line 1");
-    ASSERT_EQ(line2, line3->next, "Line 2 should come after line 3");
-    ASSERT_EQ(line3, line2->prev, "Line 2 should point back to line 3");
-    ASSERT_EQ(line1, line3->prev, "Line 3 should point back to line 1");
-    
-    // Clean up
-    free_editor_buffer(&buffer);
+    free_editor_state(&state);
+    remove(test_filename); // Clean up test file
 }
 
-void test_buffer_traversal(void) {
-    TextBuffer buffer;
-    init_editor_buffer(&buffer);
+void test_line_insertion_with_editor_state(void) {
+    EditorState state;
+    init_editor_state(&state, NULL);
+    
+    // The buffer should start with one empty line
+    ASSERT_EQ(1, state.buffer.num_lines, "Should start with 1 line");
+    
+    // Test inserting a line after the current line
+    Line *new_line = create_new_line("Second line");
+    insert_line_after_buffer(&state.buffer, state.buffer.current_line_node, new_line);
+    
+    ASSERT_EQ(2, state.buffer.num_lines, "Buffer should have 2 lines after insertion");
+    ASSERT_EQ(new_line, state.buffer.current_line_node->next, "New line should be after current line");
+    ASSERT_EQ(state.buffer.current_line_node, new_line->prev, "New line should point back to current line");
+    
+    // Test inserting at end
+    Line *third_line = create_new_line("Third line");
+    insert_line_at_end(&state.buffer, third_line);
+    
+    ASSERT_EQ(3, state.buffer.num_lines, "Buffer should have 3 lines");
+    ASSERT_EQ(third_line, state.buffer.tail, "Third line should be buffer tail");
+    
+    free_editor_state(&state);
+}
+
+void test_buffer_traversal_with_editor_state(void) {
+    EditorState state;
+    init_editor_state(&state, NULL);
+    
+    // Clear the initial empty line and create test lines
+    free_editor_buffer(&state.buffer);
+    init_editor_buffer(&state.buffer);
     
     // Create a buffer with multiple lines
     Line *lines[5];
@@ -133,11 +160,14 @@ void test_buffer_traversal(void) {
         char content[20];
         snprintf(content, sizeof(content), "Line %d", i + 1);
         lines[i] = create_new_line(content);
-        insert_line_at_end(&buffer, lines[i]);
+        insert_line_at_end(&state.buffer, lines[i]);
     }
     
+    // Set current line to first line
+    state.buffer.current_line_node = state.buffer.head;
+    
     // Test forward traversal
-    Line *current = buffer.head;
+    Line *current = state.buffer.head;
     int count = 0;
     while (current != NULL) {
         char expected[20];
@@ -153,7 +183,7 @@ void test_buffer_traversal(void) {
     ASSERT_EQ(5, count, "Forward traversal should visit all 5 lines");
     
     // Test backward traversal
-    current = buffer.tail;
+    current = state.buffer.tail;
     count = 4;
     while (current != NULL) {
         char expected[20];
@@ -168,32 +198,36 @@ void test_buffer_traversal(void) {
     }
     ASSERT_EQ(-1, count, "Backward traversal should visit all 5 lines");
     
-    // Clean up
-    free_editor_buffer(&buffer);
+    free_editor_state(&state);
 }
 
-void test_buffer_cleanup(void) {
-    TextBuffer buffer;
-    init_editor_buffer(&buffer);
+void test_temp_message_functionality(void) {
+    EditorState state;
+    init_editor_state(&state, NULL);
     
-    // Create a buffer with lines
-    for (int i = 0; i < 3; i++) {
-        char content[20];
-        snprintf(content, sizeof(content), "Line %d", i + 1);
-        Line *line = create_new_line(content);
-        insert_line_at_end(&buffer, line);
-    }
+    // Test initial state
+    ASSERT_FALSE(has_temp_message(&state), "Should not have temp message initially");
     
-    ASSERT_EQ(3, buffer.num_lines, "Buffer should have 3 lines before cleanup");
+    // Test setting temp message
+    set_temp_message(&state, "Test message");
+    ASSERT_TRUE(has_temp_message(&state), "Should have temp message after setting");
+    ASSERT_STR_EQ("Test message", state.temp_message, "Temp message should match what was set");
     
-    // Free the buffer
-    free_editor_buffer(&buffer);
+    // Test clearing temp message
+    clear_temp_message(&state);
+    ASSERT_FALSE(has_temp_message(&state), "Should not have temp message after clearing");
+    ASSERT_EQ('\0', state.temp_message[0], "Temp message buffer should be empty");
     
-    ASSERT_NULL(buffer.head, "Buffer head should be NULL after cleanup");
-    ASSERT_NULL(buffer.tail, "Buffer tail should be NULL after cleanup");
-    ASSERT_EQ(0, buffer.num_lines, "Buffer should have 0 lines after cleanup");
-    ASSERT_NULL(buffer.current_line_node, "Current line should be NULL after cleanup");
-    ASSERT_EQ(0, buffer.current_col_offset, "Column offset should be 0 after cleanup");
+    // Test message truncation
+    char long_message[300];
+    memset(long_message, 'A', 299);
+    long_message[299] = '\0';
+    
+    set_temp_message(&state, long_message);
+    ASSERT_TRUE(has_temp_message(&state), "Should have temp message after setting long message");
+    ASSERT_TRUE(strlen(state.temp_message) < 256, "Message should be truncated to buffer size");
+    
+    free_editor_state(&state);
 }
 
 void test_line_edge_cases(void) {
@@ -217,16 +251,36 @@ void test_line_edge_cases(void) {
     free(line);
 }
 
+void test_editor_state_edge_cases(void) {
+    EditorState state;
+    
+    // Test with NULL state
+    init_editor_state(NULL, NULL);
+    free_editor_state(NULL);
+    set_temp_message(NULL, "test");
+    clear_temp_message(NULL);
+    ASSERT_FALSE(has_temp_message(NULL), "NULL state should not have temp message");
+    
+    // Test with valid state but NULL message
+    init_editor_state(&state, NULL);
+    set_temp_message(&state, NULL);
+    ASSERT_FALSE(has_temp_message(&state), "Should not have temp message when setting NULL");
+    
+    free_editor_state(&state);
+}
+
 void run_data_structures_tests(void) {
     TEST_SUITE_START("Data Structures Tests");
     
     test_line_creation();
     test_line_operations();
-    test_text_buffer_initialization();
-    test_line_insertion();
-    test_buffer_traversal();
-    test_buffer_cleanup();
+    test_editor_state_initialization();
+    test_editor_state_with_filename();
+    test_line_insertion_with_editor_state();
+    test_buffer_traversal_with_editor_state();
+    test_temp_message_functionality();
     test_line_edge_cases();
+    test_editor_state_edge_cases();
     
     TEST_SUITE_END("Data Structures Tests");
 }
