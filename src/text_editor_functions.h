@@ -9,6 +9,7 @@
 
 #include "data_structures.h" // Include the new header
 #include "color_config.h"    // Include color configuration
+#include "undo.h" // include undo system
 
 #define MAX_COMMAND_LENGTH 30
 

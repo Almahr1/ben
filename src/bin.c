@@ -8,6 +8,7 @@
 #include "text_editor_functions.h"
 #include "data_structures.h"
 #include "color_config.h"
+#include "undo.h"
 
 int main(int argc, char *argv[]) {
     initscr();
@@ -22,6 +23,7 @@ int main(int argc, char *argv[]) {
     noecho(); // Disable input echoing
 
     init_editor_buffer(&editor_buffer);
+    init_undo_system();
 
     const char *filename = NULL;
     if (argc > 1) {

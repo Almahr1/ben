@@ -9,6 +9,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include "undo.h"
 
 // Globals used for mode and top_line
 int top_line = 0;
@@ -312,181 +313,16 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
     attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
 }
 
-void handleNormalModeInput(int ch, TextBuffer *buffer) {
-    Line *line = buffer->current_line_node;
-    size_t current_col = buffer->current_col_offset;
-    int max_row, max_col;
-    getmaxyx(stdscr, max_row, max_col);
-
-    // Calculate visible lines (subtract 2: 1 for status bar, 1 for mode indicator)
-    int visible_lines = max_row - 2;
-
-    switch (ch) {
-    // Vim-style movement keys
-    case 'h': // Move left
-        if (buffer->current_col_offset > 0) {
-            buffer->current_col_offset--;
-        }
-        break;
-    case 'j': // Move down
-        if (line->next != NULL) {
-            buffer->current_line_node = line->next;
-            size_t new_line_length = line_get_length(buffer->current_line_node);
-            if (buffer->current_col_offset > new_line_length) {
-                buffer->current_col_offset = new_line_length;
-            }
-
-            // Check if cursor moved below visible area (accounting for wrapped lines)
-            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
-            if (cursor_screen_row > visible_lines) {
-                top_line++;
-            }
-        }
-        break;
-    case 'k': // Move up
-        if (line->prev != NULL) {
-            buffer->current_line_node = line->prev;
-            size_t new_line_length = line_get_length(buffer->current_line_node);
-            if (buffer->current_col_offset > new_line_length) {
-                buffer->current_col_offset = new_line_length;
-            }
-
-            // Corrected logic for scrolling up
-            if (get_absolute_line_number(&editor_buffer, buffer->current_line_node) < top_line) {
-                top_line--;
-            }
-        }
-        break;
-    case 'l': // Move right
-        if (buffer->current_col_offset < line_get_length(line)) {
-            buffer->current_col_offset++;
-        }
-        break;
-
-    // Traditional arrow keys (still supported)
-    case KEY_UP:
-        handleNormalModeInput('k', buffer);
-        break;
-    case KEY_DOWN:
-        handleNormalModeInput('j', buffer);
-        break;
-    case KEY_LEFT:
-        handleNormalModeInput('h', buffer);
-        break;
-    case KEY_RIGHT:
-        handleNormalModeInput('l', buffer);
-        break;
-
-    // Mode switching
-    case 'i': // Enter insert mode
-        current_mode = MODE_INSERT;
-        break;
-    case 'a': // Enter insert mode after cursor
-        if (buffer->current_col_offset < line_get_length(line)) {
-            buffer->current_col_offset++;
-        }
-        current_mode = MODE_INSERT;
-        break;
-    case 'A': // Enter insert mode at end of line
-        buffer->current_col_offset = line_get_length(line);
-        current_mode = MODE_INSERT;
-        break;
-    case 'o': // Insert new line below and enter insert mode
-        {
-            Line *new_line = create_new_line_empty();
-            insert_line_after(line, new_line);
-            buffer->current_line_node = new_line;
-            buffer->current_col_offset = 0;
-            current_mode = MODE_INSERT;
-
-            // Check if cursor moved below visible area
-            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
-            if (cursor_screen_row > visible_lines) {
-                top_line++;
-            }
-        }
-        break;
-    case 'O': // Insert new line above and enter insert mode
-        {
-            Line *new_line = create_new_line_empty();
-            if (line->prev != NULL) {
-                insert_line_after(line->prev, new_line);
-            } else {
-                // Insert at beginning
-                new_line->next = buffer->head;
-                if (buffer->head != NULL) {
-                    buffer->head->prev = new_line;
-                }
-                buffer->head = new_line;
-                if (buffer->tail == NULL) {
-                    buffer->tail = new_line;
-                }
-                buffer->num_lines++;
-            }
-            buffer->current_line_node = new_line;
-            buffer->current_col_offset = 0;
-            current_mode = MODE_INSERT;
-
-            // Check if cursor moved above visible area
-            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
-            if (cursor_screen_row < 1) {
-                top_line--;
-                if (top_line < 0) top_line = 0;
-            }
-        }
-        break;
-
-    case ':': // Enter command mode
-        current_mode = MODE_COMMAND;
-        // Clear any existing temp message when entering command mode
-        clear_temp_message();
-        break;
-
-    case 27: // Escape key - should stay in normal mode
-        current_mode = MODE_NORMAL;
-        // Clear temp message on escape
-        clear_temp_message();
-        break;
-
-    // Toggle line wrapping
-    case 'w': // Toggle line wrap
-        line_wrap_enabled = !line_wrap_enabled;
-        set_temp_message(line_wrap_enabled ? "Line wrap enabled" : "Line wrap disabled");
-        break;
-
-    // Normal mode editing commands
-    case 'x': // Delete character under cursor
-        if (current_col < line_get_length(line)) {
-            line_delete_char_at(line, current_col);
-        }
-        break;
-
-    case 'X': // Delete character before cursor
-        if (current_col > 0) {
-            line_delete_char_before(line, current_col);
-            buffer->current_col_offset--;
-        }
-        break;
-
-    default:
-        // Ignore other keys in normal mode
-        break;
-    }
-}
-
 void handleInsertModeInput(int ch, TextBuffer *buffer) {
     Line *line = buffer->current_line_node;
     size_t current_col = buffer->current_col_offset;
     int max_row, max_col;
     getmaxyx(stdscr, max_row, max_col);
-
-    // Calculate visible lines (subtract 2: 1 for status bar, 1 for mode indicator)
     int visible_lines = max_row - 2;
 
     switch (ch) {
-    case 27: // Escape key - return to normal mode
+    case 27: // Escape key
         current_mode = MODE_NORMAL;
-        // Move cursor back one position if possible (vim behavior)
         if (buffer->current_col_offset > 0) {
             buffer->current_col_offset--;
         }
@@ -494,15 +330,16 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
 
     case 10: // Enter key
         if (line != NULL) {
-            // Get the text after cursor position
             char *line_text = line_to_string(line);
             if (line_text) {
-                // Create new line with text after cursor
+                // Record the split operation for undo
+                size_t line_num = get_line_number(buffer, line);
+                push_undo_operation(UNDO_SPLIT_LINE, line_num, current_col, 
+                                  line_text + current_col, strlen(line_text + current_col));
+
                 Line *new_line = create_new_line(line_text + current_col);
                 
-                // Truncate current line at cursor position
                 gap_buffer_move_cursor_to(line->gb, current_col);
-                // Delete all characters from cursor to end
                 size_t chars_to_delete = line_get_length(line) - current_col;
                 for (size_t i = 0; i < chars_to_delete; i++) {
                     gap_buffer_delete_char(line->gb);
@@ -514,7 +351,6 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
                 
                 free(line_text);
 
-                // Check if cursor moved below visible area
                 int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
                 if (cursor_screen_row > visible_lines) {
                     top_line++;
@@ -524,23 +360,32 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
         break;
 
     case KEY_BACKSPACE:
-    case 127: // Backspace key
+    case 127: // Backspace
         if (current_col > 0) {
+            // Record the character being deleted
+            char deleted_char = line_get_char_at(line, current_col - 1);
+            size_t line_num = get_line_number(buffer, line);
+            push_undo_operation(UNDO_DELETE_CHAR, line_num, current_col - 1, 
+                              &deleted_char, 1);
+
             line_delete_char_before(line, current_col);
             buffer->current_col_offset--;
         } else if (line->prev != NULL) {
+            // Record line merge operation
             Line *prev_line = line->prev;
             size_t prev_len = line_get_length(prev_line);
-
-            // Get text from current line to append
             char *current_text = line_to_string(line);
+            
             if (current_text) {
-                // Append current line's text to previous line
+                size_t prev_line_num = get_line_number(buffer, prev_line);
+                push_undo_operation(UNDO_MERGE_LINES, prev_line_num, prev_len, 
+                                  current_text, strlen(current_text));
+
                 line_insert_string_at(prev_line, prev_len, current_text);
                 free(current_text);
             }
 
-            // Unlink and free current line
+            // Remove current line
             prev_line->next = line->next;
             if (line->next != NULL) {
                 line->next->prev = prev_line;
@@ -554,7 +399,6 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
             buffer->current_line_node = prev_line;
             buffer->current_col_offset = prev_len;
 
-            // Check scrolling after merge
             int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
             if (cursor_screen_row < 1) {
                 top_line--;
@@ -565,19 +409,28 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
 
     case KEY_DC: // Delete key
         if (current_col < line_get_length(line)) {
+            // Record the character being deleted
+            char deleted_char = line_get_char_at(line, current_col);
+            size_t line_num = get_line_number(buffer, line);
+            push_undo_operation(UNDO_DELETE_CHAR, line_num, current_col, 
+                              &deleted_char, 1);
+
             line_delete_char_at(line, current_col);
         } else if (line->next != NULL) {
+            // Record line merge operation
             Line *next_line = line->next;
-            
-            // Get text from next line to append
             char *next_text = line_to_string(next_line);
+            
             if (next_text) {
-                // Append next line's text to current line
+                size_t line_num = get_line_number(buffer, line);
+                push_undo_operation(UNDO_MERGE_LINES, line_num, 
+                                  line_get_length(line), next_text, strlen(next_text));
+
                 line_insert_string_at(line, line_get_length(line), next_text);
                 free(next_text);
             }
 
-            // Unlink and free next line
+            // Remove next line
             line->next = next_line->next;
             if (next_line->next != NULL) {
                 next_line->next->prev = line;
@@ -590,7 +443,7 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
         }
         break;
 
-    // Arrow keys work in insert mode
+    // Arrow keys remain unchanged
     case KEY_UP:
         if (line->prev != NULL) {
             buffer->current_line_node = line->prev;
@@ -598,7 +451,6 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
             if (buffer->current_col_offset > new_line_length) {
                 buffer->current_col_offset = new_line_length;
             }
-
             int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
             if (cursor_screen_row < 1) {
                 top_line--;
@@ -614,7 +466,6 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
             if (buffer->current_col_offset > new_line_length) {
                 buffer->current_col_offset = new_line_length;
             }
-
             int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
             if (cursor_screen_row > visible_lines) {
                 top_line++;
@@ -636,9 +487,209 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
 
     default:
         if (isprint(ch)) {
+            // Record character insertion for undo
+            size_t line_num = get_line_number(buffer, line);
+            push_undo_operation(UNDO_INSERT_CHAR, line_num, current_col, 
+                              (char*)&ch, 1);
+
             line_insert_char_at(line, current_col, ch);
             buffer->current_col_offset++;
         }
+        break;
+    }
+}
+
+// Modified handleNormalModeInput function with undo/redo support:
+void handleNormalModeInput(int ch, TextBuffer *buffer) {
+    Line *line = buffer->current_line_node;
+    size_t current_col = buffer->current_col_offset;
+    int max_row, max_col;
+    getmaxyx(stdscr, max_row, max_col);
+    int visible_lines = max_row - 2;
+
+    switch (ch) {
+    // Movement keys remain unchanged (h, j, k, l, arrow keys)
+    case 'h':
+        if (buffer->current_col_offset > 0) {
+            buffer->current_col_offset--;
+        }
+        break;
+    case 'j':
+        if (line->next != NULL) {
+            buffer->current_line_node = line->next;
+            size_t new_line_length = line_get_length(buffer->current_line_node);
+            if (buffer->current_col_offset > new_line_length) {
+                buffer->current_col_offset = new_line_length;
+            }
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            if (cursor_screen_row > visible_lines) {
+                top_line++;
+            }
+        }
+        break;
+    case 'k':
+        if (line->prev != NULL) {
+            buffer->current_line_node = line->prev;
+            size_t new_line_length = line_get_length(buffer->current_line_node);
+            if (buffer->current_col_offset > new_line_length) {
+                buffer->current_col_offset = new_line_length;
+            }
+            if (get_absolute_line_number(&editor_buffer, buffer->current_line_node) < top_line) {
+                top_line--;
+            }
+        }
+        break;
+    case 'l':
+        if (buffer->current_col_offset < line_get_length(line)) {
+            buffer->current_col_offset++;
+        }
+        break;
+
+    // Arrow keys
+    case KEY_UP: handleNormalModeInput('k', buffer); break;
+    case KEY_DOWN: handleNormalModeInput('j', buffer); break;
+    case KEY_LEFT: handleNormalModeInput('h', buffer); break;
+    case KEY_RIGHT: handleNormalModeInput('l', buffer); break;
+
+    // Mode switching (unchanged)
+    case 'i': current_mode = MODE_INSERT; break;
+    case 'a':
+        if (buffer->current_col_offset < line_get_length(line)) {
+            buffer->current_col_offset++;
+        }
+        current_mode = MODE_INSERT;
+        break;
+    case 'A':
+        buffer->current_col_offset = line_get_length(line);
+        current_mode = MODE_INSERT;
+        break;
+
+    case 'o': // Insert new line below
+        {
+            size_t line_num = get_line_number(buffer, line);
+            push_undo_operation(UNDO_INSERT_LINE, line_num, 0, "", 0);
+
+            Line *new_line = create_new_line_empty();
+            insert_line_after(line, new_line);
+            buffer->current_line_node = new_line;
+            buffer->current_col_offset = 0;
+            current_mode = MODE_INSERT;
+
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            if (cursor_screen_row > visible_lines) {
+                top_line++;
+            }
+        }
+        break;
+
+    case 'O': // Insert new line above
+        {
+            Line *new_line = create_new_line_empty();
+            size_t line_num;
+            
+            if (line->prev != NULL) {
+                line_num = get_line_number(buffer, line->prev);
+                push_undo_operation(UNDO_INSERT_LINE, line_num, 0, "", 0);
+                insert_line_after(line->prev, new_line);
+            } else {
+                line_num = 0;
+                push_undo_operation(UNDO_INSERT_LINE, line_num, 0, "", 0);
+                new_line->next = buffer->head;
+                if (buffer->head != NULL) {
+                    buffer->head->prev = new_line;
+                }
+                buffer->head = new_line;
+                if (buffer->tail == NULL) {
+                    buffer->tail = new_line;
+                }
+                buffer->num_lines++;
+            }
+            
+            buffer->current_line_node = new_line;
+            buffer->current_col_offset = 0;
+            current_mode = MODE_INSERT;
+
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            if (cursor_screen_row < 1) {
+                top_line--;
+                if (top_line < 0) top_line = 0;
+            }
+        }
+        break;
+
+    case ':': // Command mode
+        current_mode = MODE_COMMAND;
+        clear_temp_message();
+        break;
+
+    case 27: // Escape
+        current_mode = MODE_NORMAL;
+        clear_temp_message();
+        break;
+
+    case 'w': // Toggle wrap
+        line_wrap_enabled = !line_wrap_enabled;
+        set_temp_message(line_wrap_enabled ? "Line wrap enabled" : "Line wrap disabled");
+        break;
+
+    // Edit commands with undo support
+    case 'x': // Delete character under cursor
+        if (current_col < line_get_length(line)) {
+            char deleted_char = line_get_char_at(line, current_col);
+            size_t line_num = get_line_number(buffer, line);
+            push_undo_operation(UNDO_DELETE_CHAR, line_num, current_col, 
+                              &deleted_char, 1);
+            line_delete_char_at(line, current_col);
+        }
+        break;
+
+    case 'X': // Delete character before cursor
+        if (current_col > 0) {
+            char deleted_char = line_get_char_at(line, current_col - 1);
+            size_t line_num = get_line_number(buffer, line);
+            push_undo_operation(UNDO_DELETE_CHAR, line_num, current_col - 1, 
+                              &deleted_char, 1);
+            line_delete_char_before(line, current_col);
+            buffer->current_col_offset--;
+        }
+        break;
+
+    // NEW: Undo/Redo commands
+    case 'u': // Undo
+        if (can_undo()) {
+            perform_undo(buffer);
+            // Update cursor position to a safe location
+            if (buffer->current_line_node == NULL || 
+                buffer->current_col_offset > line_get_length(buffer->current_line_node)) {
+                if (buffer->head != NULL) {
+                    buffer->current_line_node = buffer->head;
+                    buffer->current_col_offset = 0;
+                }
+            }
+            set_temp_message("Undo successful");
+        } else {
+            set_temp_message("Nothing to undo");
+        }
+        break;
+
+    case 18: // Ctrl+R for redo
+        if (can_redo()) {
+            perform_redo(buffer);
+            // Update cursor position to a safe location
+            if (buffer->current_line_node == NULL || 
+                buffer->current_col_offset > line_get_length(buffer->current_line_node)) {
+                if (buffer->head != NULL) {
+                    buffer->current_line_node = buffer->head;
+                    buffer->current_col_offset = 0;
+                }
+            }
+            set_temp_message("Redo successful");
+        } else {
+            set_temp_message("Nothing to redo");
+        }
+        break;
+
+    default:
         break;
     }
 }

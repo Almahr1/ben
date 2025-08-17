@@ -22,7 +22,7 @@ TEST_TARGET = ben_tests
 CFLAGS = -Wall -Wextra -std=c11 -g -Isrc -Itests
 
 # Source files for the main application
-SRCS_MAIN = src/bin.c src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c
+SRCS_MAIN = src/bin.c src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c src/undo.c
 OBJS_MAIN = $(SRCS_MAIN:.c=.o)
 
 # Source files for the test suite (excluding main application files that would cause conflicts)
