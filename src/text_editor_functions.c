@@ -1,3 +1,7 @@
+// Updated text_editor_functions.c - Key changes for stable line references:
+// - Changed all push_undo_operation calls to use Line* instead of line numbers
+// - Added invalidate_undo_operations_for_line calls when deleting lines
+
 #ifdef _WIN32
 #include <pdcurses.h>
 #else
@@ -310,9 +314,8 @@ void handleInsertModeInput(int ch, EditorState *state) {
         if (line != NULL) {
             char *line_text = line_to_string(line);
             if (line_text) {
-                // Record the split operation for undo
-                size_t line_num = get_line_number(buffer, line);
-                push_undo_operation(UNDO_SPLIT_LINE, line_num, current_col, 
+                // Record the split operation for undo (using line pointer)
+                push_undo_operation(UNDO_SPLIT_LINE, line, current_col, 
                                   line_text + current_col, strlen(line_text + current_col));
 
                 Line *new_line = create_new_line(line_text + current_col);
@@ -340,28 +343,29 @@ void handleInsertModeInput(int ch, EditorState *state) {
     case KEY_BACKSPACE:
     case 127: // Backspace
         if (current_col > 0) {
-            // Record the character being deleted
+            // Record the character being deleted (using line pointer)
             char deleted_char = line_get_char_at(line, current_col - 1);
-            size_t line_num = get_line_number(buffer, line);
-            push_undo_operation(UNDO_DELETE_CHAR, line_num, current_col - 1, 
+            push_undo_operation(UNDO_DELETE_CHAR, line, current_col - 1, 
                               &deleted_char, 1);
 
             line_delete_char_before(line, current_col);
             buffer->current_col_offset--;
         } else if (line->prev != NULL) {
-            // Record line merge operation
+            // Record line merge operation (using line pointer)
             Line *prev_line = line->prev;
             size_t prev_len = line_get_length(prev_line);
             char *current_text = line_to_string(line);
             
             if (current_text) {
-                size_t prev_line_num = get_line_number(buffer, prev_line);
-                push_undo_operation(UNDO_MERGE_LINES, prev_line_num, prev_len, 
+                push_undo_operation(UNDO_MERGE_LINES, prev_line, prev_len, 
                                   current_text, strlen(current_text));
 
                 line_insert_string_at(prev_line, prev_len, current_text);
                 free(current_text);
             }
+
+            // Invalidate undo operations for the line being removed
+            invalidate_undo_operations_for_line(line);
 
             // Remove current line
             prev_line->next = line->next;
@@ -387,26 +391,27 @@ void handleInsertModeInput(int ch, EditorState *state) {
 
     case KEY_DC: // Delete key
         if (current_col < line_get_length(line)) {
-            // Record the character being deleted
+            // Record the character being deleted (using line pointer)
             char deleted_char = line_get_char_at(line, current_col);
-            size_t line_num = get_line_number(buffer, line);
-            push_undo_operation(UNDO_DELETE_CHAR, line_num, current_col, 
+            push_undo_operation(UNDO_DELETE_CHAR, line, current_col, 
                               &deleted_char, 1);
 
             line_delete_char_at(line, current_col);
         } else if (line->next != NULL) {
-            // Record line merge operation
+            // Record line merge operation (using line pointer)
             Line *next_line = line->next;
             char *next_text = line_to_string(next_line);
             
             if (next_text) {
-                size_t line_num = get_line_number(buffer, line);
-                push_undo_operation(UNDO_MERGE_LINES, line_num, 
+                push_undo_operation(UNDO_MERGE_LINES, line, 
                                   line_get_length(line), next_text, strlen(next_text));
 
                 line_insert_string_at(line, line_get_length(line), next_text);
                 free(next_text);
             }
+
+            // Invalidate undo operations for the line being removed
+            invalidate_undo_operations_for_line(next_line);
 
             // Remove next line
             line->next = next_line->next;
@@ -465,9 +470,8 @@ void handleInsertModeInput(int ch, EditorState *state) {
 
     default:
         if (isprint(ch)) {
-            // Record character insertion for undo
-            size_t line_num = get_line_number(buffer, line);
-            push_undo_operation(UNDO_INSERT_CHAR, line_num, current_col, 
+            // Record character insertion for undo (using line pointer)
+            push_undo_operation(UNDO_INSERT_CHAR, line, current_col, 
                               (char*)&ch, 1);
 
             line_insert_char_at(line, current_col, ch);
@@ -544,8 +548,7 @@ void handleNormalModeInput(int ch, EditorState *state) {
 
     case 'o': // Insert new line below
         {
-            size_t line_num = get_line_number(buffer, line);
-            push_undo_operation(UNDO_INSERT_LINE, line_num, 0, "", 0);
+            push_undo_operation(UNDO_INSERT_LINE, line, 0, "", 0);
 
             Line *new_line = create_new_line_empty();
             insert_line_after(buffer, line, new_line);
@@ -563,15 +566,13 @@ void handleNormalModeInput(int ch, EditorState *state) {
     case 'O': // Insert new line above
         {
             Line *new_line = create_new_line_empty();
-            size_t line_num;
             
             if (line->prev != NULL) {
-                line_num = get_line_number(buffer, line->prev);
-                push_undo_operation(UNDO_INSERT_LINE, line_num, 0, "", 0);
+                push_undo_operation(UNDO_INSERT_LINE, line->prev, 0, "", 0);
                 insert_line_after(buffer, line->prev, new_line);
             } else {
-                line_num = 0;
-                push_undo_operation(UNDO_INSERT_LINE, line_num, 0, "", 0);
+                // For first line, we'll use the head as reference but mark it specially
+                push_undo_operation(UNDO_INSERT_LINE, NULL, 0, "", 0);
                 new_line->next = buffer->head;
                 if (buffer->head != NULL) {
                     buffer->head->prev = new_line;
@@ -610,12 +611,11 @@ void handleNormalModeInput(int ch, EditorState *state) {
         set_temp_message(state, state->line_wrap_enabled ? "Line wrap enabled" : "Line wrap disabled");
         break;
 
-    // Edit commands with undo support
+    // Edit commands with undo support (using line pointers)
     case 'x': // Delete character under cursor
         if (current_col < line_get_length(line)) {
             char deleted_char = line_get_char_at(line, current_col);
-            size_t line_num = get_line_number(buffer, line);
-            push_undo_operation(UNDO_DELETE_CHAR, line_num, current_col, 
+            push_undo_operation(UNDO_DELETE_CHAR, line, current_col, 
                               &deleted_char, 1);
             line_delete_char_at(line, current_col);
         }
@@ -624,8 +624,7 @@ void handleNormalModeInput(int ch, EditorState *state) {
     case 'X': // Delete character before cursor
         if (current_col > 0) {
             char deleted_char = line_get_char_at(line, current_col - 1);
-            size_t line_num = get_line_number(buffer, line);
-            push_undo_operation(UNDO_DELETE_CHAR, line_num, current_col - 1, 
+            push_undo_operation(UNDO_DELETE_CHAR, line, current_col - 1, 
                               &deleted_char, 1);
             line_delete_char_before(line, current_col);
             buffer->current_col_offset--;
@@ -634,32 +633,7 @@ void handleNormalModeInput(int ch, EditorState *state) {
 
     case 'u': // Undo
         if (can_undo()) {
-            // Store current position for fallback
-            Line *old_line = buffer->current_line_node;
-            size_t old_col = buffer->current_col_offset;
-            
             perform_undo(buffer);
-            
-            // Additional safety check after undo
-            if (buffer->current_line_node == NULL) {
-                if (buffer->head != NULL) {
-                    buffer->current_line_node = buffer->head;
-                    buffer->current_col_offset = 0;
-                } else {
-                    // Emergency: create a line if buffer is completely empty
-                    Line *emergency_line = create_new_line_empty();
-                    insert_line_at_end(buffer, emergency_line);
-                    buffer->current_line_node = emergency_line;
-                    buffer->current_col_offset = 0;
-                }
-            }
-            
-            // Validate column position
-            if (buffer->current_line_node && 
-                buffer->current_col_offset > line_get_length(buffer->current_line_node)) {
-                buffer->current_col_offset = line_get_length(buffer->current_line_node);
-            }
-            
             set_temp_message(state, "Undo successful");
         } else {
             set_temp_message(state, "Nothing to undo");
@@ -669,27 +643,6 @@ void handleNormalModeInput(int ch, EditorState *state) {
     case 18: // Ctrl+R for redo
         if (can_redo()) {
             perform_redo(buffer);
-            
-            // Additional safety check after redo
-            if (buffer->current_line_node == NULL) {
-                if (buffer->head != NULL) {
-                    buffer->current_line_node = buffer->head;
-                    buffer->current_col_offset = 0;
-                } else {
-                    // Emergency: create a line if buffer is completely empty
-                    Line *emergency_line = create_new_line_empty();
-                    insert_line_at_end(buffer, emergency_line);
-                    buffer->current_line_node = emergency_line;
-                    buffer->current_col_offset = 0;
-                }
-            }
-            
-            // Validate column position
-            if (buffer->current_line_node && 
-                buffer->current_col_offset > line_get_length(buffer->current_line_node)) {
-                buffer->current_col_offset = line_get_length(buffer->current_line_node);
-            }
-            
             set_temp_message(state, "Redo successful");
         } else {
             set_temp_message(state, "Nothing to redo");

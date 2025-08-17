@@ -10,7 +10,7 @@
 #include "data_structures.h"
 #include "color_config.h"
 #include "editor_state.h"
-#include "undo.h"
+// Note: undo.h is included in the .c file to avoid circular dependencies
 
 #define MAX_COMMAND_LENGTH 30
 
