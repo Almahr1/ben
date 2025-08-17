@@ -654,18 +654,34 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
         }
         break;
 
-    // NEW: Undo/Redo commands
     case 'u': // Undo
         if (can_undo()) {
+            // Store current position for fallback
+            Line *old_line = buffer->current_line_node;
+            size_t old_col = buffer->current_col_offset;
+            
             perform_undo(buffer);
-            // Update cursor position to a safe location
-            if (buffer->current_line_node == NULL || 
-                buffer->current_col_offset > line_get_length(buffer->current_line_node)) {
+            
+            // Additional safety check after undo
+            if (buffer->current_line_node == NULL) {
                 if (buffer->head != NULL) {
                     buffer->current_line_node = buffer->head;
                     buffer->current_col_offset = 0;
+                } else {
+                    // Emergency: create a line if buffer is completely empty
+                    Line *emergency_line = create_new_line_empty();
+                    insert_line_at_end(buffer, emergency_line);
+                    buffer->current_line_node = emergency_line;
+                    buffer->current_col_offset = 0;
                 }
             }
+            
+            // Validate column position
+            if (buffer->current_line_node && 
+                buffer->current_col_offset > line_get_length(buffer->current_line_node)) {
+                buffer->current_col_offset = line_get_length(buffer->current_line_node);
+            }
+            
             set_temp_message("Undo successful");
         } else {
             set_temp_message("Nothing to undo");
@@ -675,21 +691,31 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
     case 18: // Ctrl+R for redo
         if (can_redo()) {
             perform_redo(buffer);
-            // Update cursor position to a safe location
-            if (buffer->current_line_node == NULL || 
-                buffer->current_col_offset > line_get_length(buffer->current_line_node)) {
+            
+            // Additional safety check after redo
+            if (buffer->current_line_node == NULL) {
                 if (buffer->head != NULL) {
                     buffer->current_line_node = buffer->head;
                     buffer->current_col_offset = 0;
+                } else {
+                    // Emergency: create a line if buffer is completely empty
+                    Line *emergency_line = create_new_line_empty();
+                    insert_line_at_end(buffer, emergency_line);
+                    buffer->current_line_node = emergency_line;
+                    buffer->current_col_offset = 0;
                 }
             }
+            
+            // Validate column position
+            if (buffer->current_line_node && 
+                buffer->current_col_offset > line_get_length(buffer->current_line_node)) {
+                buffer->current_col_offset = line_get_length(buffer->current_line_node);
+            }
+            
             set_temp_message("Redo successful");
         } else {
             set_temp_message("Nothing to redo");
         }
-        break;
-
-    default:
         break;
     }
 }
