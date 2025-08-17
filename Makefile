@@ -29,8 +29,8 @@ OBJS_MAIN = $(SRCS_MAIN:.c=.o)
 TEST_SRCS = tests/test_runner.c tests/test_framework.c tests/test_gap_buffer.c tests/test_data_structures.c tests/test_file_operations.c
 TEST_OBJS = $(TEST_SRCS:.c=.o)
 
-# Library objects needed for tests (excluding bin.c which has main())
-LIB_SRCS = src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c src/editor_state.c
+# Library objects needed for tests (excluding bin.c which has main()) - FIXED: Added undo.c
+LIB_SRCS = src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c src/undo.c src/editor_state.c
 LIB_OBJS = $(LIB_SRCS:.c=.o)
 
 # All object files for the test executable
@@ -80,9 +80,10 @@ ifeq ($(OS),Darwin)
 endif
 
 # Header dependencies for the main application
-src/bin.o: src/bin.c src/text_editor_functions.h src/data_structures.h src/color_config.h src/editor_state.h
+src/bin.o: src/bin.c src/text_editor_functions.h src/data_structures.h src/color_config.h src/editor_state.h src/undo.h
 src/file_operations.o: src/file_operations.c src/data_structures.h src/gap_buffer.h
-src/text_editor_functions.o: src/text_editor_functions.c src/text_editor_functions.h src/color_config.h src/gap_buffer.h src/editor_state.h
+src/text_editor_functions.o: src/text_editor_functions.c src/text_editor_functions.h src/color_config.h src/gap_buffer.h src/editor_state.h src/undo.h
 src/color_config.o: src/color_config.c src/color_config.h
 src/gap_buffer.o: src/gap_buffer.c src/gap_buffer.h
+src/undo.o: src/undo.c src/undo.h src/data_structures.h
 src/editor_state.o: src/editor_state.c src/editor_state.h src/data_structures.h
