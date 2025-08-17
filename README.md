@@ -8,7 +8,7 @@ Ben is a minimalist, Vim-like file editor built using C. Designed for speed and 
 
 ## Features
 
-* **Three Editing Modes**:
+* * **Three Editing Modes**:
     * **Normal Mode**: Navigate and manipulate text
     * **Insert Mode**: Type and edit content
     * **Command Mode**: Execute editor commands
@@ -24,11 +24,9 @@ Ben is a minimalist, Vim-like file editor built using C. Designed for speed and 
     * Insert/delete characters/lines
     * Line merging/splitting
     * `x`/`X` to delete characters under/before cursor
-* **Visual Enhancements**:
-    * Line numbers with current line indicator
-    * Color-coded mode indicators
-    * Status bar with file info and cursor position
-    * Customizable color schemes
+* **Undo/Redo System**:
+    * `u` - Undo last action
+    * `Ctrl+R` - Redo last undone action
 
 ---
 
@@ -86,36 +84,41 @@ To compile and run Ben, you'll need `gcc` (or another C compiler) and the `ncurs
 ## Usage
 
 ### Normal Mode
-* **Movement**: `h`(left), `j`(down), `k`(up), `l`(right) or arrow keys
-* **Commands**:
-    * `i` - Enter Insert mode at cursor
-    * `a` - Enter Insert mode after cursor
-    * `A` - Enter Insert mode at end of line
-    * `o`/`O` - Insert new line below/above
-    * `x` - Delete character under cursor
-    * `X` - Delete character before cursor
-    * `:` - Enter Command mode
-    * `w` - Toggle line wrapping
-* `Escape` returns to Normal Mode
+
+**Movement**: `h`(left), `j`(down), `k`(up), `l`(right) or arrow keys
+
+**Commands**:
+        `i` - Enter Insert mode at cursor
+        `a` - Enter Insert mode after cursor
+        `A` - Enter Insert mode at end of line
+        `o/O` - Insert new line below/above
+        `x` - Delete character under cursor
+        `X` - Delete character before cursor
+        `u` - Undo last action
+        `Ctrl+R` - Redo last undone action
+        `:` - Enter Command mode
+        `w` - Toggle line wrapping
+    `Escape` - returns to Normal Mode
 
 ### Insert Mode
-* **Typing**: Insert characters directly
-* **Special Keys**:
-    * `Enter` - Split line
-    * `Backspace` - Delete previous character/merge lines
-    * `Delete` - Delete next character/merge with next line
-    * Arrow keys - Move cursor
-* `Escape` returns to Normal Mode
 
-### Command Mode
-* Press `:` from Normal Mode to enter
-* **Commands**:
-    * `w` - Save file
-    * `w filename` - Save as
-    * `q` - Quit
-    * `wq` - Save and quit
-    * `wrap`/`nowrap` - Toggle line wrapping
-* Press `Enter` to execute or `Escape` to cancel
+**Typing**: Insert characters directly
+
+**Special Keys**:
+        `Enter` - Split line
+        `Backspace` - Delete previous character/merge lines
+        `Delete` - Delete next character/merge with next line
+        Arrow keys - Move cursor
+    `Escape` returns to Normal Mode
+
+### Command Mode:
+    Press `:` from Normal Mode to enter
+    Commands:
+        w - Save file
+        w filename - Save as
+        q - Quit
+        wq - Save and quit
+        wrap/nowrap - Toggle line wrapping
 
 ---
 
@@ -149,7 +152,7 @@ To compile and run Ben, you'll need `gcc` (or another C compiler) and the `ncurs
 ### Planned Enhancements
 
 * **Editing Operations**:
-    * [ ] Undo/Redo system
+    * [x] Undo/Redo system
     * [ ] Copy/Paste functionality
 * **Navigation**:
     * [ ] `HOME`/`END` key support
@@ -161,7 +164,7 @@ To compile and run Ben, you'll need `gcc` (or another C compiler) and the `ncurs
     * [ ] Optimized memory management
     * [ ] Gap buffer implementation
 * **User Experience**:
-    * [ ] Action feedback messages
+    * [x] Action feedback messages
     * [ ] Syntax highlighting
     * [ ] Multiple buffer support
 
