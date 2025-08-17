@@ -22,7 +22,7 @@ TEST_TARGET = ben_tests
 CFLAGS = -Wall -Wextra -std=c11 -g -Isrc -Itests
 
 # Source files for the main application
-SRCS_MAIN = src/bin.c src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c src/undo.c
+SRCS_MAIN = src/bin.c src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c src/undo.c src/editor_state.c
 OBJS_MAIN = $(SRCS_MAIN:.c=.o)
 
 # Source files for the test suite (excluding main application files that would cause conflicts)
@@ -30,7 +30,7 @@ TEST_SRCS = tests/test_runner.c tests/test_framework.c tests/test_gap_buffer.c t
 TEST_OBJS = $(TEST_SRCS:.c=.o)
 
 # Library objects needed for tests (excluding bin.c which has main())
-LIB_SRCS = src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c
+LIB_SRCS = src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c src/editor_state.c
 LIB_OBJS = $(LIB_SRCS:.c=.o)
 
 # All object files for the test executable
@@ -80,8 +80,9 @@ ifeq ($(OS),Darwin)
 endif
 
 # Header dependencies for the main application
-src/bin.o: src/bin.c src/text_editor_functions.h src/data_structures.h src/color_config.h
+src/bin.o: src/bin.c src/text_editor_functions.h src/data_structures.h src/color_config.h src/editor_state.h
 src/file_operations.o: src/file_operations.c src/data_structures.h src/gap_buffer.h
-src/text_editor_functions.o: src/text_editor_functions.c src/text_editor_functions.h src/color_config.h src/gap_buffer.h
+src/text_editor_functions.o: src/text_editor_functions.c src/text_editor_functions.h src/color_config.h src/gap_buffer.h src/editor_state.h
 src/color_config.o: src/color_config.c src/color_config.h
 src/gap_buffer.o: src/gap_buffer.c src/gap_buffer.h
+src/editor_state.o: src/editor_state.c src/editor_state.h src/data_structures.h

@@ -6,37 +6,14 @@
 
 #include "text_editor_functions.h"
 #include "color_config.h"
+#include "editor_state.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include "undo.h"
 
-// Globals used for mode and top_line
-int top_line = 0;
-EditorMode current_mode = MODE_NORMAL;
-int line_wrap_enabled = 1; // Enable line wrapping by default
-
-// Globals for temp messages - simple persistent system
-static char temp_message[256] = "";
-
-// Helper function to set a temporary message
-void set_temp_message(const char *message) {
-    strncpy(temp_message, message, sizeof(temp_message) - 1);
-    temp_message[sizeof(temp_message) - 1] = '\0';
-}
-
-// Helper function to clear temporary message
-void clear_temp_message(void) {
-    temp_message[0] = '\0';
-}
-
-// Helper function to check if temp message is active
-int has_temp_message(void) {
-    return temp_message[0] != '\0';
-}
-
 // Helper function to get absolute line number
-int get_absolute_line_number(TextBuffer *buffer, Line *target_line) {
+int get_absolute_line_number(const TextBuffer *buffer, Line *target_line) {
     int line_num = 0;
     Line *current = buffer->head;
 
@@ -61,7 +38,7 @@ const char* get_mode_string(EditorMode mode) {
     }
 }
 
-void drawModeIndicator(EditorMode mode) {
+void drawModeIndicator(EditorMode mode, int line_wrap_enabled) {
     int color_pair;
     const char* mode_text = get_mode_string(mode);
     
@@ -93,7 +70,7 @@ void drawModeIndicator(EditorMode mode) {
 }
 
 // Calculate how many screen lines a text line will take when wrapped
-int get_wrapped_line_count(const char *text, int max_width) {
+int get_wrapped_line_count(const char *text, int max_width, int line_wrap_enabled) {
     if (!line_wrap_enabled) {
         return 1;
     }
@@ -107,7 +84,7 @@ int get_wrapped_line_count(const char *text, int max_width) {
 }
 
 // Draw a line with wrapping support
-void draw_wrapped_line(int row, int col, const char *text, int max_width, int color_pair) {
+void draw_wrapped_line(int row, int col, const char *text, int max_width, int color_pair, int line_wrap_enabled) {
     if (!line_wrap_enabled) {
         attron(COLOR_PAIR(color_pair));
         mvprintw(row, col, "%.*s", max_width, text);
@@ -129,7 +106,7 @@ void draw_wrapped_line(int row, int col, const char *text, int max_width, int co
     attroff(COLOR_PAIR(color_pair));
 }
 
-void drawLineNumbers(int visible_lines, const TextBuffer *buffer) {
+void drawLineNumbers(int visible_lines, const TextBuffer *buffer, int top_line) {
     Line *current_line_node = buffer->head;
     int line_num = 1;
     int screen_row = 1; // Start from row 1 to leave space for mode indicator
@@ -144,7 +121,7 @@ void drawLineNumbers(int visible_lines, const TextBuffer *buffer) {
 
     while (screen_row <= visible_lines && current_line_node != NULL) {
         char *line_text = line_to_string(current_line_node);
-        int wrapped_lines = line_text ? get_wrapped_line_count(line_text, text_width) : 1;
+        int wrapped_lines = line_text ? get_wrapped_line_count(line_text, text_width, 1) : 1;
         if (line_text) free(line_text);
         
         // Draw line number for the first wrapped line
@@ -174,7 +151,7 @@ void drawLineNumbers(int visible_lines, const TextBuffer *buffer) {
     }
 }
 
-void drawTextContent(int visible_lines, const TextBuffer *buffer) {
+void drawTextContent(int visible_lines, const TextBuffer *buffer, int top_line, int line_wrap_enabled) {
     Line *current_line_node = buffer->head;
     int screen_row = 1; // Start from row 1 to leave space for mode indicator
     int max_col = getmaxx(stdscr);
@@ -190,8 +167,8 @@ void drawTextContent(int visible_lines, const TextBuffer *buffer) {
         char *line_text = line_to_string(current_line_node);
         if (line_text) {
             // Draw the line with wrapping
-            draw_wrapped_line(screen_row, 8, line_text, text_width, COLOR_PAIR_TEXT);
-            int wrapped_lines = get_wrapped_line_count(line_text, text_width);
+            draw_wrapped_line(screen_row, 8, line_text, text_width, COLOR_PAIR_TEXT, line_wrap_enabled);
+            int wrapped_lines = get_wrapped_line_count(line_text, text_width, line_wrap_enabled);
             screen_row += wrapped_lines;
             free(line_text); // Don't forget to free!
         } else {
@@ -202,7 +179,7 @@ void drawTextContent(int visible_lines, const TextBuffer *buffer) {
 }
 
 // Calculate which screen row the cursor should be on
-int get_cursor_screen_row(TextBuffer *buffer, int visible_lines) {
+int get_cursor_screen_row(const TextBuffer *buffer, int visible_lines, int top_line, int line_wrap_enabled) {
     Line *current_line_node = buffer->head;
     int line_count = 0;
     int screen_row = 1; // Start from row 1 to account for mode indicator
@@ -218,7 +195,7 @@ int get_cursor_screen_row(TextBuffer *buffer, int visible_lines) {
     // Calculate screen position for each line until we reach the cursor line
     while (current_line_node != NULL && current_line_node != buffer->current_line_node) {
         char *line_text = line_to_string(current_line_node);
-        int wrapped_lines = line_text ? get_wrapped_line_count(line_text, text_width) : 1;
+        int wrapped_lines = line_text ? get_wrapped_line_count(line_text, text_width, line_wrap_enabled) : 1;
         if (line_text) free(line_text);
         
         screen_row += wrapped_lines;
@@ -235,7 +212,7 @@ int get_cursor_screen_row(TextBuffer *buffer, int visible_lines) {
     return screen_row;
 }
 
-void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *command) {
+void drawStatusBar(const EditorState *state, const char *command) {
     int max_row, max_col;
     getmaxyx(stdscr, max_row, max_col);
     int status_row = max_row - 1;
@@ -247,25 +224,25 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
     mvhline(status_row, 0, ' ', max_col);
 
     // Draw filename on the left
-    if (filename != NULL && strlen(filename) > 0) {
-        mvprintw(status_row, 1, "%s", filename);
+    if (state->filename != NULL && strlen(state->filename) > 0) {
+        mvprintw(status_row, 1, "%s", state->filename);
     } else {
         mvprintw(status_row, 1, "[No Name]");
     }
 
     // Draw cursor position on the right
-    int cursor_line = get_absolute_line_number(buffer, buffer->current_line_node) + 1; // 1-based for display
-    int cursor_col = buffer->current_col_offset + 1; // 1-based for display
+    int cursor_line = get_absolute_line_number(&state->buffer, state->buffer.current_line_node) + 1; // 1-based for display
+    int cursor_col = state->buffer.current_col_offset + 1; // 1-based for display
     char position_text[50];
     snprintf(position_text, sizeof(position_text), "Line %d, Col %d", cursor_line, cursor_col);
     int pos_len = strlen(position_text);
     mvprintw(status_row, max_col - pos_len - 1, "%s", position_text);
 
-    // Handle temporary messages - simple display
-    if (has_temp_message()) {
+    // Handle temporary messages
+    if (has_temp_message(state)) {
         // If in command mode, clear temp message to make room for command
-        if (current_mode == MODE_COMMAND) {
-            clear_temp_message();
+        if (state->current_mode == MODE_COMMAND) {
+            // Don't clear here, let command display take priority
         } else {
             // Show temp message in command area
             attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
@@ -277,7 +254,7 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
 
             if (command_width > 0) {
                 mvhline(status_row, command_start, ' ', command_width);
-                mvprintw(status_row, command_start, "%s", temp_message);
+                mvprintw(status_row, command_start, "%s", state->temp_message);
             }
 
             attroff(COLOR_PAIR(COLOR_PAIR_COMMAND));
@@ -286,7 +263,7 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
     }
 
     // If in command mode and no temp message is showing, show command input
-    if (current_mode == MODE_COMMAND && !has_temp_message() && command != NULL) {
+    if (state->current_mode == MODE_COMMAND && !has_temp_message(state) && command != NULL) {
         // Change to command input colors
         attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
         attron(COLOR_PAIR(COLOR_PAIR_COMMAND));
@@ -313,7 +290,8 @@ void drawStatusBar(const char *filename, const TextBuffer *buffer, const char *c
     attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
 }
 
-void handleInsertModeInput(int ch, TextBuffer *buffer) {
+void handleInsertModeInput(int ch, EditorState *state) {
+    TextBuffer *buffer = &state->buffer;
     Line *line = buffer->current_line_node;
     size_t current_col = buffer->current_col_offset;
     int max_row, max_col;
@@ -322,7 +300,7 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
 
     switch (ch) {
     case 27: // Escape key
-        current_mode = MODE_NORMAL;
+        state->current_mode = MODE_NORMAL;
         if (buffer->current_col_offset > 0) {
             buffer->current_col_offset--;
         }
@@ -345,15 +323,15 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
                     gap_buffer_delete_char(line->gb);
                 }
                 
-                insert_line_after(line, new_line);
+                insert_line_after(buffer, line, new_line);
                 buffer->current_line_node = new_line;
                 buffer->current_col_offset = 0;
                 
                 free(line_text);
 
-                int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+                int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines, state->top_line, state->line_wrap_enabled);
                 if (cursor_screen_row > visible_lines) {
-                    top_line++;
+                    state->top_line++;
                 }
             }
         }
@@ -399,10 +377,10 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
             buffer->current_line_node = prev_line;
             buffer->current_col_offset = prev_len;
 
-            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines, state->top_line, state->line_wrap_enabled);
             if (cursor_screen_row < 1) {
-                top_line--;
-                if (top_line < 0) top_line = 0;
+                state->top_line--;
+                if (state->top_line < 0) state->top_line = 0;
             }
         }
         break;
@@ -443,7 +421,7 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
         }
         break;
 
-    // Arrow keys remain unchanged
+    // Arrow keys
     case KEY_UP:
         if (line->prev != NULL) {
             buffer->current_line_node = line->prev;
@@ -451,10 +429,10 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
             if (buffer->current_col_offset > new_line_length) {
                 buffer->current_col_offset = new_line_length;
             }
-            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines, state->top_line, state->line_wrap_enabled);
             if (cursor_screen_row < 1) {
-                top_line--;
-                if (top_line < 0) top_line = 0;
+                state->top_line--;
+                if (state->top_line < 0) state->top_line = 0;
             }
         }
         break;
@@ -466,9 +444,9 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
             if (buffer->current_col_offset > new_line_length) {
                 buffer->current_col_offset = new_line_length;
             }
-            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines, state->top_line, state->line_wrap_enabled);
             if (cursor_screen_row > visible_lines) {
-                top_line++;
+                state->top_line++;
             }
         }
         break;
@@ -499,8 +477,8 @@ void handleInsertModeInput(int ch, TextBuffer *buffer) {
     }
 }
 
-// Modified handleNormalModeInput function with undo/redo support:
-void handleNormalModeInput(int ch, TextBuffer *buffer) {
+void handleNormalModeInput(int ch, EditorState *state) {
+    TextBuffer *buffer = &state->buffer;
     Line *line = buffer->current_line_node;
     size_t current_col = buffer->current_col_offset;
     int max_row, max_col;
@@ -508,7 +486,7 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
     int visible_lines = max_row - 2;
 
     switch (ch) {
-    // Movement keys remain unchanged (h, j, k, l, arrow keys)
+    // Movement keys
     case 'h':
         if (buffer->current_col_offset > 0) {
             buffer->current_col_offset--;
@@ -521,9 +499,9 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
             if (buffer->current_col_offset > new_line_length) {
                 buffer->current_col_offset = new_line_length;
             }
-            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines, state->top_line, state->line_wrap_enabled);
             if (cursor_screen_row > visible_lines) {
-                top_line++;
+                state->top_line++;
             }
         }
         break;
@@ -534,8 +512,8 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
             if (buffer->current_col_offset > new_line_length) {
                 buffer->current_col_offset = new_line_length;
             }
-            if (get_absolute_line_number(&editor_buffer, buffer->current_line_node) < top_line) {
-                top_line--;
+            if (get_absolute_line_number(buffer, buffer->current_line_node) < state->top_line) {
+                state->top_line--;
             }
         }
         break;
@@ -546,22 +524,22 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
         break;
 
     // Arrow keys
-    case KEY_UP: handleNormalModeInput('k', buffer); break;
-    case KEY_DOWN: handleNormalModeInput('j', buffer); break;
-    case KEY_LEFT: handleNormalModeInput('h', buffer); break;
-    case KEY_RIGHT: handleNormalModeInput('l', buffer); break;
+    case KEY_UP: handleNormalModeInput('k', state); break;
+    case KEY_DOWN: handleNormalModeInput('j', state); break;
+    case KEY_LEFT: handleNormalModeInput('h', state); break;
+    case KEY_RIGHT: handleNormalModeInput('l', state); break;
 
-    // Mode switching (unchanged)
-    case 'i': current_mode = MODE_INSERT; break;
+    // Mode switching
+    case 'i': state->current_mode = MODE_INSERT; break;
     case 'a':
         if (buffer->current_col_offset < line_get_length(line)) {
             buffer->current_col_offset++;
         }
-        current_mode = MODE_INSERT;
+        state->current_mode = MODE_INSERT;
         break;
     case 'A':
         buffer->current_col_offset = line_get_length(line);
-        current_mode = MODE_INSERT;
+        state->current_mode = MODE_INSERT;
         break;
 
     case 'o': // Insert new line below
@@ -570,14 +548,14 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
             push_undo_operation(UNDO_INSERT_LINE, line_num, 0, "", 0);
 
             Line *new_line = create_new_line_empty();
-            insert_line_after(line, new_line);
+            insert_line_after(buffer, line, new_line);
             buffer->current_line_node = new_line;
             buffer->current_col_offset = 0;
-            current_mode = MODE_INSERT;
+            state->current_mode = MODE_INSERT;
 
-            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines, state->top_line, state->line_wrap_enabled);
             if (cursor_screen_row > visible_lines) {
-                top_line++;
+                state->top_line++;
             }
         }
         break;
@@ -590,7 +568,7 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
             if (line->prev != NULL) {
                 line_num = get_line_number(buffer, line->prev);
                 push_undo_operation(UNDO_INSERT_LINE, line_num, 0, "", 0);
-                insert_line_after(line->prev, new_line);
+                insert_line_after(buffer, line->prev, new_line);
             } else {
                 line_num = 0;
                 push_undo_operation(UNDO_INSERT_LINE, line_num, 0, "", 0);
@@ -607,29 +585,29 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
             
             buffer->current_line_node = new_line;
             buffer->current_col_offset = 0;
-            current_mode = MODE_INSERT;
+            state->current_mode = MODE_INSERT;
 
-            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines);
+            int cursor_screen_row = get_cursor_screen_row(buffer, visible_lines, state->top_line, state->line_wrap_enabled);
             if (cursor_screen_row < 1) {
-                top_line--;
-                if (top_line < 0) top_line = 0;
+                state->top_line--;
+                if (state->top_line < 0) state->top_line = 0;
             }
         }
         break;
 
     case ':': // Command mode
-        current_mode = MODE_COMMAND;
-        clear_temp_message();
+        state->current_mode = MODE_COMMAND;
+        clear_temp_message(state);
         break;
 
     case 27: // Escape
-        current_mode = MODE_NORMAL;
-        clear_temp_message();
+        state->current_mode = MODE_NORMAL;
+        clear_temp_message(state);
         break;
 
     case 'w': // Toggle wrap
-        line_wrap_enabled = !line_wrap_enabled;
-        set_temp_message(line_wrap_enabled ? "Line wrap enabled" : "Line wrap disabled");
+        state->line_wrap_enabled = !state->line_wrap_enabled;
+        set_temp_message(state, state->line_wrap_enabled ? "Line wrap enabled" : "Line wrap disabled");
         break;
 
     // Edit commands with undo support
@@ -682,9 +660,9 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
                 buffer->current_col_offset = line_get_length(buffer->current_line_node);
             }
             
-            set_temp_message("Undo successful");
+            set_temp_message(state, "Undo successful");
         } else {
-            set_temp_message("Nothing to undo");
+            set_temp_message(state, "Nothing to undo");
         }
         break;
 
@@ -712,16 +690,17 @@ void handleNormalModeInput(int ch, TextBuffer *buffer) {
                 buffer->current_col_offset = line_get_length(buffer->current_line_node);
             }
             
-            set_temp_message("Redo successful");
+            set_temp_message(state, "Redo successful");
         } else {
-            set_temp_message("Nothing to redo");
+            set_temp_message(state, "Nothing to redo");
         }
         break;
     }
 }
 
-void handleCommandModeInput(int ch, char *command, TextBuffer *buffer, const char *filename) {
+void handleCommandModeInput(int ch, char *command, EditorState *state) {
     static int command_index = 0;
+    TextBuffer *buffer = &state->buffer;
 
     switch (ch) {
     case 10: // Enter key
@@ -729,22 +708,22 @@ void handleCommandModeInput(int ch, char *command, TextBuffer *buffer, const cha
             endwin();
             exit(EXIT_SUCCESS);
         } else if (strcmp(command, "w") == 0) {
-            if (filename != NULL && strlen(filename) > 0) {
-                saveToFile(filename, buffer);
-                set_temp_message("File saved");
+            if (state->filename != NULL && strlen(state->filename) > 0) {
+                saveToFile(state->filename, buffer);
+                set_temp_message(state, "File saved");
             } else {
-                set_temp_message("Error: No filename specified");
+                set_temp_message(state, "Error: No filename specified");
             }
         } else if (strncmp(command, "w ", 2) == 0) {
             // Save with specified filename: "w filename.txt"
             const char *save_filename = command + 2; // Skip "w "
             if (strlen(save_filename) > 0) {
                 saveToFile(save_filename, buffer);
-                set_temp_message("File saved");
+                set_temp_message(state, "File saved");
             }
         } else if (strcmp(command, "wq") == 0) {
-            if (filename != NULL && strlen(filename) > 0) {
-                saveToFile(filename, buffer);
+            if (state->filename != NULL && strlen(state->filename) > 0) {
+                saveToFile(state->filename, buffer);
             }
             endwin();
             exit(EXIT_SUCCESS);
@@ -758,24 +737,24 @@ void handleCommandModeInput(int ch, char *command, TextBuffer *buffer, const cha
             exit(EXIT_SUCCESS);
         } else if (strcmp(command, "wrap") == 0) {
             // Toggle line wrapping
-            line_wrap_enabled = 1;
-            set_temp_message("Line wrap enabled");
+            state->line_wrap_enabled = 1;
+            set_temp_message(state, "Line wrap enabled");
         } else if (strcmp(command, "nowrap") == 0) {
             // Disable line wrapping
-            line_wrap_enabled = 0;
-            set_temp_message("Line wrap disabled");
+            state->line_wrap_enabled = 0;
+            set_temp_message(state, "Line wrap disabled");
         } else {
-            set_temp_message("Unknown command");
+            set_temp_message(state, "Unknown command");
         }
 
         command[0] = '\0'; // Reset command buffer
         command_index = 0; // Reset command index
-        current_mode = MODE_NORMAL;  // Return to normal mode
+        state->current_mode = MODE_NORMAL;  // Return to normal mode
         break;
     case 27: // Escape key
         command[0] = '\0'; // Reset command buffer
         command_index = 0; // Reset command index
-        current_mode = MODE_NORMAL; // Return to normal mode
+        state->current_mode = MODE_NORMAL; // Return to normal mode
         break;
     case KEY_BACKSPACE:
     case 127: // Backspace in command mode
@@ -793,18 +772,18 @@ void handleCommandModeInput(int ch, char *command, TextBuffer *buffer, const cha
     }
 }
 
-void handleInput(char *command, TextBuffer *buffer, const char *filename) {
+void handleInput(char *command, EditorState *state) {
     int ch = getch();
     
-    switch (current_mode) {
+    switch (state->current_mode) {
         case MODE_NORMAL:
-            handleNormalModeInput(ch, buffer);
+            handleNormalModeInput(ch, state);
             break;
         case MODE_INSERT:
-            handleInsertModeInput(ch, buffer);
+            handleInsertModeInput(ch, state);
             break;
         case MODE_COMMAND:
-            handleCommandModeInput(ch, command, buffer, filename);
+            handleCommandModeInput(ch, command, state);
             break;
     }
 }

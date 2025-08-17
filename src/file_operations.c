@@ -8,11 +8,8 @@
 #include "text_editor_functions.h"
 #include "gap_buffer.h"
 
-// Initialize the global text buffer
-TextBuffer editor_buffer;
-
-void insert_line_after(Line *prev_line, Line *new_line) {
-    if (prev_line == NULL) {
+void insert_line_after(TextBuffer *buffer, Line *prev_line, Line *new_line) {
+    if (!buffer || prev_line == NULL) {
         // This case should ideally be handled by insert_line_at_end if it's the first line.
         // For safety, let's just do nothing or handle it as an error.
         return;
@@ -31,16 +28,16 @@ void insert_line_after(Line *prev_line, Line *new_line) {
     }
 
     // Update the buffer's num_lines count
-    editor_buffer.num_lines++;
+    buffer->num_lines++;
 
     // If the new line is inserted at the end, update the tail
-    if (prev_line == editor_buffer.tail) {
-        editor_buffer.tail = new_line;
+    if (prev_line == buffer->tail) {
+        buffer->tail = new_line;
     }
 }
 
 void insert_line_after_buffer(TextBuffer *buffer, Line *prev_line, Line *new_line) {
-    if (prev_line == NULL) {
+    if (!buffer || prev_line == NULL) {
         // This case should ideally be handled by insert_line_at_end if it's the first line.
         // For safety, let's just do nothing or handle it as an error.
         return;
@@ -68,6 +65,8 @@ void insert_line_after_buffer(TextBuffer *buffer, Line *prev_line, Line *new_lin
 }
 
 void init_editor_buffer(TextBuffer *buffer) {
+    if (!buffer) return;
+    
     buffer->head = NULL;
     buffer->tail = NULL;
     buffer->num_lines = 0;
@@ -117,6 +116,8 @@ Line* create_new_line_empty() {
 }
 
 void insert_line_at_end(TextBuffer *buffer, Line *new_line) {
+    if (!buffer || !new_line) return;
+    
     if (buffer->tail == NULL) {
         buffer->head = new_line;
         buffer->tail = new_line;
@@ -129,6 +130,8 @@ void insert_line_at_end(TextBuffer *buffer, Line *new_line) {
 }
 
 void free_editor_buffer(TextBuffer *buffer) {
+    if (!buffer) return;
+    
     Line *current = buffer->head;
     while (current != NULL) {
         Line *temp = current;
@@ -144,6 +147,8 @@ void free_editor_buffer(TextBuffer *buffer) {
 }
 
 void saveToFile(const char *filename, TextBuffer *buffer) {
+    if (!filename || !buffer) return;
+    
     FILE *file = fopen(filename, "w");
     if (file == NULL) {
         // Handle error gracefully
@@ -164,6 +169,8 @@ void saveToFile(const char *filename, TextBuffer *buffer) {
 }
 
 void loadFromFile(const char *filename, TextBuffer *buffer) {
+    if (!filename || !buffer) return;
+    
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
         // File doesn't exist - create a new empty buffer with one line

@@ -21,14 +21,14 @@ typedef struct TextBuffer {
     size_t current_col_offset;  // Column offset within the current line
 } TextBuffer;
 
-// Global instance of the text buffer
-extern TextBuffer editor_buffer;
+// Note: TextBuffer instances are now managed by EditorState
+// No more global editor_buffer!
 
 // Function declarations
 void init_editor_buffer(TextBuffer *buffer);
 Line* create_new_line(const char *content);
 Line* create_new_line_empty();
-void insert_line_after(Line *prev_line, Line *new_line);
+void insert_line_after(TextBuffer *buffer, Line *prev_line, Line *new_line);
 void insert_line_after_buffer(TextBuffer *buffer, Line *prev_line, Line *new_line);
 void free_editor_buffer(TextBuffer *buffer);
 void insert_line_at_end(TextBuffer *buffer, Line *new_line);
