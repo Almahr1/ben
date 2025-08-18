@@ -4,6 +4,7 @@
 void run_data_structures_tests(void);
 void run_file_operations_tests(void);
 void run_gap_buffer_tests(void);
+void run_undo_tests(void);
 
 int main() {
     init_test_framework();
@@ -11,6 +12,7 @@ int main() {
     run_gap_buffer_tests();
     run_data_structures_tests();
     run_file_operations_tests();
+    run_undo_tests();
     
     print_test_summary();
     
