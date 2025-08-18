@@ -16,22 +16,54 @@ void test_undo_insert_char(void){
     push_undo_operation(UNDO_INSERT_CHAR, line, 5, "!", 1);
     line_insert_char_at(line, 5, '!');
 
-    ASSERT_TRUE(can_undo(), "Should be Able to Undo");
+    ASSERT_TRUE(can_undo(), "Should Be Able To Undo"); 
+    perform_undo(&buffer);
 
-    char* content = line_to_string(line); // This should be "hello"     
-    ASSERT_STR_EQ("hello", content, "Undo Should Restore Original Content");
+    char* undone_content = line_to_string(line); // This should be "hello"     
+    ASSERT_STR_EQ("hello", undone_content, "Undo Should Restore Un-Modified Content");
 
-    free(content);
-    
+    ASSERT_TRUE(can_redo(), "Should Be Able to Redo");
+    perform_redo(&buffer);
+
+    char* redone_content = line_to_string(line); // should be "hello!"
+    ASSERT_STR_EQ("hello!", redone_content, "Undo Should Restore Modified Content");
+
+    free(undone_content);
+    free(redone_content);
     free_editor_buffer(&buffer);
 }
 
 
 void test_undo_delete_char(void) {
-    // Test UNDO_DELETE_CHAR operations
+    TextBuffer buffer;
+    init_editor_buffer(&buffer);
+    init_undo_system();
+
+    Line *line = create_new_line("Testing");
+    insert_line_at_end(&buffer, line);
+    buffer.current_line_node = line;
+
+    push_undo_operation(UNDO_DELETE_CHAR, line, 6, "g", 1);
+    line_delete_char_at(line, 6);
+
+    ASSERT_TRUE(can_undo(), "Should Be Able To Undo");
+    perform_undo(&buffer);
+
+    char* undone_content = line_to_string(line);
+    ASSERT_STR_EQ("Testing", undone_content, "Undo Should Restore Un-Modified Content");
+
+    ASSERT_TRUE(can_redo(), "Should Be Able to Redo");
+    perform_redo(&buffer);
+
+    char* redone_content = line_to_string(line);
+    ASSERT_STR_EQ("Testin", redone_content, "Redo Should Restore Modified Content");
+
+    free(undone_content);
+    free(redone_content);
+    free_editor_buffer(&buffer);
 }
 
-void test_undo_insert_line(void) {
+void test_undo_insert_line(void) {  
     // Test UNDO_INSERT_LINE operations
 }
 
