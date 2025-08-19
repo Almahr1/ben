@@ -4,10 +4,10 @@
 #include <stddef.h>
 
 typedef struct {
-    char *buffer;           // The actual character buffer
-    size_t capacity;        // Total size of the buffer
-    size_t gap_start;       // Start position of the gap
-    size_t gap_end;         // End position of the gap (exclusive)
+    char *buffer;           
+    size_t capacity;      
+    size_t gap_start;       
+    size_t gap_end;         
 } GapBuffer;
 
 // Gap buffer operations
