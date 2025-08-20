@@ -1,183 +1,98 @@
+# Ben: A Vim-like Text Editor
 
-# Ben: A Vim-like File Editor
+A minimalist, Vim-inspired text editor built in C with ncurses. Features modal editing, undo/redo, search functionality, and line wrapping.
 
-Ben is a minimalist, Vim-like file editor built using C. Designed for speed and simplicity, it currently features basic text editing capabilities with an emphasis on low-level control.
+## Installation
 
----
+### Dependencies
+Install ncurses development libraries:
 
-
-## Features
-
-* * **Three Editing Modes**:
-    * **Normal Mode**: Navigate and manipulate text
-    * **Insert Mode**: Type and edit content
-    * **Command Mode**: Execute editor commands
-* **Enhanced Navigation**:
-    * Arrow keys and Vim-style `h`, `j`, `k`, `l` movement
-    * Line wrapping support (toggle with `:wrap`/`:nowrap`)
-* **File Operations**:
-    * `:w` - Save file
-    * `:w filename` - Save as new file
-    * `:q` - Quit editor
-    * `:wq` - Save and quit
-* **Text Manipulation**:
-    * Insert/delete characters/lines
-    * Line merging/splitting
-    * `x`/`X` to delete characters under/before cursor
-* **Undo/Redo System**:
-    * `u` - Undo last action
-    * `Ctrl+R` - Redo last undone action
-
----
-
-## Getting Dependencies
-
-Ben relies on the `ncurses` library for terminal user interface functionality. Here's how to install it on various Linux distributions:
-
-### Ubuntu/Debian
-
+**Ubuntu/Debian:**
 ```bash
-sudo apt update
-sudo apt install libncurses-dev
+sudo apt update && sudo apt install libncurses-dev
 ```
 
-### Fedora
-
+**Fedora:**
 ```bash
 sudo dnf install ncurses-devel
 ```
 
-### Arch Linux
-
+**Arch Linux:**
 ```bash
 sudo pacman -S ncurses
 ```
 
-### openSUSE
-
+### Build & Install
 ```bash
-sudo zypper install ncurses-devel
+git clone https://github.com/Spunchkin/ben.git
+cd ben
+make
+sudo make install
 ```
-
----
-
-## Building from Source
-
-To compile and run Ben, you'll need `gcc` (or another C compiler) and the `ncurses` development libraries installed.
-
-1.  **Clone the repository:**
-    ```bash
-    git clone [https://github.com/Spunchkin/ben.git](https://github.com/Spunchkin/ben.git)
-    cd ben
-    ```
-
-2.  **Compile and Install Ben:**
-    Ben uses a `Makefile` for easy compilation and installation. Run the following commands:
-    ```bash
-    make
-    sudo make install
-    ```
-    The `make` command compiles the project, and `sudo make install` moves the compiled `ben` executable to `/usr/local/bin`, making it accessible from anywhere in your terminal.
-
----
 
 ## Usage
 
+### Starting
+```bash
+ben [filename]    # Open file or create new
+```
+
 ### Normal Mode
-
-**Movement**: `h`(left), `j`(down), `k`(up), `l`(right) or arrow keys
-
-**Commands**:
-        `i` - Enter Insert mode at cursor
-        `a` - Enter Insert mode after cursor
-        `A` - Enter Insert mode at end of line
-        `o/O` - Insert new line below/above
-        `x` - Delete character under cursor
-        `X` - Delete character before cursor
-        `u` - Undo last action
-        `Ctrl+R` - Redo last undone action
-        `:` - Enter Command mode
-        `w` - Toggle line wrapping
-    `Escape` - returns to Normal Mode
+| Command | Action |
+|---------|--------|
+| `h j k l` | Move left/down/up/right |
+| `i` | Insert mode at cursor |
+| `a` | Insert mode after cursor |
+| `A` | Insert mode at end of line |
+| `o` | Insert new line below |
+| `O` | Insert new line above |
+| `x` | Delete character under cursor |
+| `X` | Delete character before cursor |
+| `u` | Undo |
+| `Ctrl+R` | Redo |
+| `w` | Toggle line wrapping |
+| `/` | Search forward |
+| `?` | Search backward |
+| `n` | Next search result |
+| `N` | Previous search result |
+| `:` | Command mode |
+| `Esc` | Return to normal mode |
 
 ### Insert Mode
+- Type normally to insert text
+- `Enter` splits line
+- `Backspace`/`Delete` removes characters
+- Arrow keys move cursor
+- `Esc` returns to normal mode
 
-**Typing**: Insert characters directly
+### Command Mode
+| Command | Action |
+|---------|--------|
+| `:w` | Save file |
+| `:w filename` | Save as filename |
+| `:q` | Quit |
+| `:wq` | Save and quit |
+| `:wrap` | Enable line wrapping |
+| `:nowrap` | Disable line wrapping |
+| `:nohl` | Clear search highlighting |
+| `:set ic` | Case insensitive search |
+| `:set noic` | Case sensitive search |
 
-**Special Keys**:
-        `Enter` - Split line
-        `Backspace` - Delete previous character/merge lines
-        `Delete` - Delete next character/merge with next line
-        Arrow keys - Move cursor
-    `Escape` returns to Normal Mode
+## Features
 
-### Command Mode:
-    Press `:` from Normal Mode to enter
-    Commands:
-        w - Save file
-        w filename - Save as
-        q - Quit
-        wq - Save and quit
-        wrap/nowrap - Toggle line wrapping
+- **Modal editing** (Normal/Insert/Command modes)
+- **File operations** (open, save, save as)
+- **Undo/Redo system** with operation tracking
+- **Search functionality** with highlighting and navigation
+- **Line wrapping** with toggle support
+- **Gap buffer** text storage for efficient editing
+- **Color-coded interface** with customizable themes
+- **Status bar** showing file info and cursor position
 
----
+## Architecture
 
-### Core Editor Functionality
-
-* **File I/O**:
-    * [x] Load files from command-line
-    * [x] Create new buffers
-    * [x] Save files (`:w`, `:w filename`)
-* **Text Manipulation**:
-    * [x] Character insertion/deletion
-    * [x] Line splitting/merging
-    * [x] Backspace/Delete handling
-* **Navigation**:
-    * [x] Arrow key movement
-    * [x] Vim-style `h`/`j`/`k`/`l` movement
-    * [x] Cross-line column adjustment
-* **User Interface**:
-    * [x] Line numbers with current line indicator
-    * [x] Color-coded mode display
-    * [x] Status bar with file info
-    * [x] Command input area
-    * [x] Customizable color schemes
-* **Advanced Features**:
-    * [x] Line wrapping with toggle
-    * [x] Scrolling viewport
-    * [x] Cursor position tracking
-
----
-
-### Planned Enhancements
-
-* **Editing Operations**:
-    * [x] Undo/Redo system
-    * [ ] Copy/Paste functionality
-* **Navigation**:
-    * [ ] `HOME`/`END` key support
-    * [ ] `:N` jump to line number
-* **Search & Replace**:
-    * [ ] Text search (`/` command)
-    * [ ] Replace functionality
-* **Performance**:
-    * [ ] Optimized memory management
-    * [ ] Gap buffer implementation
-* **User Experience**:
-    * [x] Action feedback messages
-    * [ ] Syntax highlighting
-    * [ ] Multiple buffer support
-
----
-
-## Contributing
-
-Contributions are welcome! If you find a bug, have a feature request, or want to contribute code, please feel free to open an issue or submit a pull request on the GitHub repository.
+Ben uses a doubly-linked list of lines, each containing a gap buffer for efficient text manipulation. The editor maintains separate state for cursor position, display viewport, and search results.
 
 ## License
 
-This project is licensed under the MIT License - see the `LICENSE` file for details.
-
-
-## Daily Message
- 14/8/2025: couldnt work alot today due to hospital stuff
+MIT License - see LICENSE file for details.
