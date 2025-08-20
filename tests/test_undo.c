@@ -7,25 +7,23 @@ void test_undo_insert_char(void){
     init_editor_buffer(&buffer);
     init_undo_system();
     
-    // Create a line with content
     Line *line = create_new_line("hello");
     insert_line_at_end(&buffer, line);
     buffer.current_line_node = line;
 
-    // Should be doable operation
     push_undo_operation(UNDO_INSERT_CHAR, line, 5, "!", 1);
     line_insert_char_at(line, 5, '!');
 
     ASSERT_TRUE(can_undo(), "Should Be Able To Undo"); 
     perform_undo(&buffer);
 
-    char* undone_content = line_to_string(line); // This should be "hello"     
+    char* undone_content = line_to_string(line);     
     ASSERT_STR_EQ("hello", undone_content, "Undo Should Restore Un-Modified Content");
 
     ASSERT_TRUE(can_redo(), "Should Be Able to Redo");
     perform_redo(&buffer);
 
-    char* redone_content = line_to_string(line); // should be "hello!"
+    char* redone_content = line_to_string(line);
     ASSERT_STR_EQ("hello!", redone_content, "Redo Should Restore Modified Content");
 
     free(undone_content);
@@ -91,18 +89,15 @@ void test_undo_delete_line(void) {
     init_editor_buffer(&buffer);
     init_undo_system();
 
-    // Create buffer with two lines
     Line *first_line = create_new_line("First line");
     Line *second_line = create_new_line("Second line to delete");
     insert_line_at_end(&buffer, first_line);
     insert_line_at_end(&buffer, second_line);
     buffer.current_line_node = second_line;
 
-    // Record deletion of second line
     char *deleted_content = line_to_string(second_line);
     push_undo_operation(UNDO_DELETE_LINE, first_line, 0, deleted_content, strlen(deleted_content));
 
-    // Simulate line deletion
     first_line->next = NULL;
     buffer.tail = first_line;
     gap_buffer_destroy(second_line->gb);
@@ -116,7 +111,6 @@ void test_undo_delete_line(void) {
     perform_undo(&buffer);
     ASSERT_EQ(2, buffer.num_lines, "Should Have 2 Lines After Undo");
 
-    // Check that the deleted line was restored
     Line *restored_line = first_line->next;
     ASSERT_NOT_NULL(restored_line, "Restored Line Should Not Be NULL");
     
@@ -141,14 +135,11 @@ void test_undo_split_line(void) {
     insert_line_at_end(&buffer, line);
     buffer.current_line_node = line;
 
-    // Record split operation - splitting at position 6 (after "Hello ")
     char *second_part = "World";
     push_undo_operation(UNDO_SPLIT_LINE, line, 6, second_part, strlen(second_part));
 
-    // Simulate line split
     Line *new_line = create_new_line("World");
     
-    // Truncate original line to "Hello "
     gap_buffer_move_cursor_to(line->gb, 6);
     size_t chars_to_delete = line_get_length(line) - 6;
     for (size_t i = 0; i < chars_to_delete; i++) {
@@ -186,22 +177,18 @@ void test_undo_merge_lines(void) {
     init_editor_buffer(&buffer);
     init_undo_system();
 
-    // Create two lines to be merged
     Line *first_line = create_new_line("Hello ");
     Line *second_line = create_new_line("World");
     insert_line_at_end(&buffer, first_line);
     insert_line_at_end(&buffer, second_line);
     buffer.current_line_node = first_line;
 
-    // Record merge operation
     char *second_content = line_to_string(second_line);
     push_undo_operation(UNDO_MERGE_LINES, first_line, line_get_length(first_line), 
                        second_content, strlen(second_content));
 
-    // Simulate merge operation
     line_insert_string_at(first_line, line_get_length(first_line), second_content);
     
-    // Remove second line
     first_line->next = second_line->next;
     if (second_line->next) {
         second_line->next->prev = first_line;
@@ -243,21 +230,17 @@ void test_undo_complex_scenarios(void) {
     init_editor_buffer(&buffer);
     init_undo_system();
 
-    // Test sequence: Insert char -> Insert line -> Delete char -> Undo all
     Line *line = create_new_line("test");
     insert_line_at_end(&buffer, line);
     buffer.current_line_node = line;
 
-    // Step 1: Insert character
     push_undo_operation(UNDO_INSERT_CHAR, line, 4, "!", 1);
     line_insert_char_at(line, 4, '!');
     
-    // Step 2: Insert new line
     Line *new_line = create_new_line("second");
     push_undo_operation(UNDO_INSERT_LINE, line, 0, "", 0);
     insert_line_after(&buffer, line, new_line);
     
-    // Step 3: Delete character from first line
     push_undo_operation(UNDO_DELETE_CHAR, line, 4, "!", 1);
     line_delete_char_at(line, 4);
 
@@ -266,7 +249,6 @@ void test_undo_complex_scenarios(void) {
     char *final_content = line_to_string(line);
     ASSERT_STR_EQ("test", final_content, "First Line Should Be Back To Original");
 
-    // Undo sequence: should undo delete, then insert line, then insert char
     ASSERT_TRUE(can_undo(), "Should Be Able To Undo Delete");
     perform_undo(&buffer);
     
@@ -283,7 +265,6 @@ void test_undo_complex_scenarios(void) {
     char *original_content = line_to_string(line);
     ASSERT_STR_EQ("test", original_content, "Should Be Back To Original State");
 
-    // Test multiple redos
     ASSERT_TRUE(can_redo(), "Should Be Able To Redo Insert Char");
     perform_redo(&buffer);
     
@@ -302,41 +283,32 @@ void test_undo_edge_cases(void) {
     init_editor_buffer(&buffer);
     init_undo_system();
 
-    // Test undo on empty buffer
     ASSERT_FALSE(can_undo(), "Should Not Be Able To Undo On Empty Buffer");
     ASSERT_FALSE(can_redo(), "Should Not Be Able To Redo On Empty Buffer");
 
-    // Test undo with invalid line reference
     Line *line = create_new_line("test line");
     insert_line_at_end(&buffer, line);
     buffer.current_line_node = line;
 
-    // Record operation
     push_undo_operation(UNDO_INSERT_CHAR, line, 0, "x", 1);
     
-    // Simulate line deletion (invalidating the reference)
     invalidate_undo_operations_for_line(line);
     
-    // Should not be able to undo operations on deleted line
-    perform_undo(&buffer);  // This should handle invalid reference gracefully
+    perform_undo(&buffer);
     
-    // Buffer should remain unchanged
     char *content = line_to_string(line);
     ASSERT_STR_EQ("test line", content, "Buffer Should Remain Unchanged With Invalid Undo");
 
-    // Test boundary conditions
     Line *empty_line = create_new_line("");
     insert_line_at_end(&buffer, empty_line);
     
-    // Test delete on empty line
     push_undo_operation(UNDO_DELETE_CHAR, empty_line, 0, "a", 1);
-    perform_undo(&buffer);  // Should handle gracefully
+    perform_undo(&buffer);
     
     ASSERT_EQ(0, line_get_length(empty_line), "Empty Line Should Remain Empty");
 
-    // Test column position beyond line length
     push_undo_operation(UNDO_INSERT_CHAR, line, 1000, "z", 1);
-    perform_undo(&buffer);  // Should clamp to valid position
+    perform_undo(&buffer);
     
     char *final_content = line_to_string(line);
     ASSERT_STR_EQ("test line", final_content, "Line Should Handle Invalid Column Position");

@@ -10,11 +10,9 @@ typedef struct {
     size_t gap_end;         
 } GapBuffer;
 
-// Gap buffer operations
 GapBuffer* gap_buffer_create(size_t initial_capacity);
 void gap_buffer_destroy(GapBuffer *gb);
 
-// Cursor movement
 void gap_buffer_move_cursor_to(GapBuffer *gb, size_t position);
 size_t gap_buffer_cursor_position(const GapBuffer *gb);
 
@@ -33,7 +31,6 @@ char* gap_buffer_to_string(const GapBuffer *gb);
 void gap_buffer_ensure_capacity(GapBuffer *gb, size_t needed_capacity);
 size_t gap_buffer_gap_size(const GapBuffer *gb);
 
-// Debug function
 void gap_buffer_print_debug(const GapBuffer *gb);
 
 #endif

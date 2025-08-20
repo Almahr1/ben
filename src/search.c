@@ -1,7 +1,7 @@
 #include "search.h"
 #include "text_editor_functions.h"
+#include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 
 void init_search_state(SearchState *search_state) {
     if (!search_state) return;
