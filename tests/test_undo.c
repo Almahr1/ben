@@ -1,6 +1,7 @@
 #include "../src/undo.h"
 #include "test_framework.h"
 #include "../src/data_structures.h"
+#include <linux/limits.h>
 
 void test_undo_insert_char(void){
     TextBuffer buffer;
