@@ -9,59 +9,46 @@
 #include "gap_buffer.h"
 
 void insert_line_after(TextBuffer *buffer, Line *prev_line, Line *new_line) {
-    if (!buffer || prev_line == NULL) {
-        // This case should ideally be handled by insert_line_at_end if it's the first line.
-        // For safety, let's just do nothing or handle it as an error.
+    if (!buffer || !new_line) return;
+    
+    if (prev_line == NULL) {
+        insert_line_at_beginning(buffer, new_line);
         return;
     }
 
-    // Link the new line to the line after the previous line
     new_line->next = prev_line->next;
-
-    // Link the previous line to the new line
     prev_line->next = new_line;
     new_line->prev = prev_line;
 
-    // If there was a line after prev_line, update its 'prev' pointer
     if (new_line->next != NULL) {
         new_line->next->prev = new_line;
     }
 
-    // Update the buffer's num_lines count
     buffer->num_lines++;
 
-    // If the new line is inserted at the end, update the tail
     if (prev_line == buffer->tail) {
         buffer->tail = new_line;
     }
 }
 
 void insert_line_after_buffer(TextBuffer *buffer, Line *prev_line, Line *new_line) {
-    if (!buffer || prev_line == NULL) {
-        // This case should ideally be handled by insert_line_at_end if it's the first line.
-        // For safety, let's just do nothing or handle it as an error.
-        return;
-    }
+    insert_line_after(buffer, prev_line, new_line);
+}
 
-    // Link the new line to the line after the previous line
-    new_line->next = prev_line->next;
-
-    // Link the previous line to the new line
-    prev_line->next = new_line;
-    new_line->prev = prev_line;
-
-    // If there was a line after prev_line, update its 'prev' pointer
-    if (new_line->next != NULL) {
-        new_line->next->prev = new_line;
-    }
-
-    // Update the buffer's num_lines count
-    buffer->num_lines++;
-
-    // If the new line is inserted at the end, update the tail
-    if (prev_line == buffer->tail) {
+void insert_line_at_beginning(TextBuffer *buffer, Line *new_line) {
+    if (!buffer || !new_line) return;
+    
+    new_line->next = buffer->head;
+    new_line->prev = NULL;
+    
+    if (buffer->head != NULL) {
+        buffer->head->prev = new_line;
+    } else {
         buffer->tail = new_line;
     }
+    
+    buffer->head = new_line;
+    buffer->num_lines++;
 }
 
 void init_editor_buffer(TextBuffer *buffer) {
@@ -81,14 +68,13 @@ Line* create_new_line(const char *content) {
         exit(EXIT_FAILURE);
     }
 
-    new_line->gb = gap_buffer_create(strlen(content) + 16); // Extra space for editing
+    new_line->gb = gap_buffer_create(strlen(content) + 16);
     if (new_line->gb == NULL) {
         free(new_line);
         perror("Gap buffer creation failed");
         exit(EXIT_FAILURE);
     }
 
-    // Insert the content into the gap buffer
     gap_buffer_insert_string(new_line->gb, content);
 
     new_line->next = NULL;
@@ -103,7 +89,7 @@ Line* create_new_line_empty() {
         exit(EXIT_FAILURE);
     }
 
-    new_line->gb = gap_buffer_create(16); // Start with small capacity
+    new_line->gb = gap_buffer_create(16);
     if (new_line->gb == NULL) {
         free(new_line);
         perror("Gap buffer creation failed");
@@ -151,7 +137,6 @@ void saveToFile(const char *filename, TextBuffer *buffer) {
     
     FILE *file = fopen(filename, "w");
     if (file == NULL) {
-        // Handle error gracefully
         return;
     }
 
@@ -173,7 +158,6 @@ void loadFromFile(const char *filename, TextBuffer *buffer) {
     
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
-        // File doesn't exist - create a new empty buffer with one line
         init_editor_buffer(buffer);
         Line *initial_line = create_new_line_empty();
         insert_line_at_end(buffer, initial_line);
@@ -182,7 +166,6 @@ void loadFromFile(const char *filename, TextBuffer *buffer) {
         return;
     }
 
-    // Free any existing content
     free_editor_buffer(buffer);
 
     char *line_buffer = NULL;
@@ -190,7 +173,6 @@ void loadFromFile(const char *filename, TextBuffer *buffer) {
     ssize_t read;
 
     while ((read = getline(&line_buffer, &len, file)) != -1) {
-        // Remove the newline character if it exists
         if (line_buffer[read - 1] == '\n') {
             line_buffer[read - 1] = '\0';
         }
@@ -198,23 +180,20 @@ void loadFromFile(const char *filename, TextBuffer *buffer) {
         insert_line_at_end(buffer, new_line);
     }
 
-    free(line_buffer); // Free the buffer allocated by getline
+    free(line_buffer);
     fclose(file);
 
-    // If file was empty, create at least one empty line
     if (buffer->head == NULL) {
         Line *initial_line = create_new_line_empty();
         insert_line_at_end(buffer, initial_line);
         buffer->current_line_node = initial_line;
         buffer->current_col_offset = 0;
     } else {
-        // Set the cursor to the beginning of the file
         buffer->current_line_node = buffer->head;
         buffer->current_col_offset = 0;
     }
 }
 
-// Gap buffer helper functions for line operations
 size_t line_get_length(const Line *line) {
     if (!line || !line->gb) return 0;
     return gap_buffer_length(line->gb);
