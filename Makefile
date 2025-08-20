@@ -22,15 +22,15 @@ TEST_TARGET = ben_tests
 CFLAGS = -Wall -Wextra -std=c11 -g -Isrc -Itests
 
 # Source files for the main application
-SRCS_MAIN = src/bin.c src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c src/undo.c src/editor_state.c
+SRCS_MAIN = src/bin.c src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c src/undo.c src/editor_state.c src/search.c
 OBJS_MAIN = $(SRCS_MAIN:.c=.o)
 
 # Source files for the test suite (excluding main application files that would cause conflicts)
-TEST_SRCS = tests/test_runner.c tests/test_framework.c tests/test_gap_buffer.c tests/test_data_structures.c tests/test_file_operations.c tests/test_undo.c
+TEST_SRCS = tests/test_runner.c tests/test_framework.c tests/test_gap_buffer.c tests/test_data_structures.c tests/test_file_operations.c tests/test_undo.c 
 TEST_OBJS = $(TEST_SRCS:.c=.o)
 
 # Library objects needed for tests (excluding bin.c which has main()) - FIXED: Added undo.c
-LIB_SRCS = src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c src/undo.c src/editor_state.c
+LIB_SRCS = src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c src/undo.c src/editor_state.c src/search.c
 LIB_OBJS = $(LIB_SRCS:.c=.o)
 
 # All object files for the test executable

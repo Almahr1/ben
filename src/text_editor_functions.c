@@ -1,6 +1,4 @@
-// Updated text_editor_functions.c - Key changes for stable line references:
-// - Changed all push_undo_operation calls to use Line* instead of line numbers
-// - Added invalidate_undo_operations_for_line calls when deleting lines
+// Updated text_editor_functions.c with integrated search functionality
 
 #ifdef _WIN32
 #include <pdcurses.h>
@@ -11,10 +9,16 @@
 #include "text_editor_functions.h"
 #include "color_config.h"
 #include "editor_state.h"
+#include "search.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include "undo.h"
+#include "search.h"
+
+// Global search state
+static SearchState search_state;
+static int search_initialized = 0;
 
 // Helper function to get absolute line number
 int get_absolute_line_number(const TextBuffer *buffer, Line *target_line) {
@@ -71,6 +75,17 @@ void drawModeIndicator(EditorMode mode, int line_wrap_enabled) {
     if (line_wrap_enabled) {
         mvprintw(0, strlen(mode_text) + 3, " [WRAP] ");
     }
+    
+    // Add search indicator if there's an active search
+    if (!search_initialized) {
+        init_search_state(&search_state);
+        search_initialized = 1;
+    }
+    
+    if (search_state.has_active_search) {
+        int search_pos = strlen(mode_text) + 3 + (line_wrap_enabled ? 8 : 0);
+        mvprintw(0, search_pos, " [SEARCH: %s] ", search_state.search_term);
+    }
 }
 
 // Calculate how many screen lines a text line will take when wrapped
@@ -87,7 +102,7 @@ int get_wrapped_line_count(const char *text, int max_width, int line_wrap_enable
     return (len + max_width - 1) / max_width; // Ceiling division
 }
 
-// Draw a line with wrapping support
+// Draw a line with wrapping support and search highlighting
 void draw_wrapped_line(int row, int col, const char *text, int max_width, int color_pair, int line_wrap_enabled) {
     if (!line_wrap_enabled) {
         attron(COLOR_PAIR(color_pair));
@@ -108,6 +123,86 @@ void draw_wrapped_line(int row, int col, const char *text, int max_width, int co
         current_row++;
     }
     attroff(COLOR_PAIR(color_pair));
+}
+
+// Enhanced version that highlights search matches
+void draw_line_with_search_highlight(int row, int col, const char *text, int max_width, 
+                                   int color_pair, int line_wrap_enabled, Line *line_node) {
+    if (!search_state.has_active_search || !text || strlen(search_state.search_term) == 0) {
+        draw_wrapped_line(row, col, text, max_width, color_pair, line_wrap_enabled);
+        return;
+    }
+    
+    int len = strlen(text);
+    int term_len = strlen(search_state.search_term);
+    int current_row = row;
+    int pos = 0;
+    
+    while (pos < len && current_row < row + get_wrapped_line_count(text, max_width, line_wrap_enabled)) {
+        int line_end = pos + max_width;
+        if (line_end > len) line_end = len;
+        
+        // Check for search matches in this wrapped line segment
+        int segment_start = pos;
+        int segment_end = line_end;
+        
+        attron(COLOR_PAIR(color_pair));
+        
+        // Draw character by character to handle highlighting
+        for (int i = segment_start; i < segment_end; i++) {
+            int is_match_start = 0;
+            
+            // Check if this position starts a match
+            if (i + term_len <= len) {
+                int match;
+                if (search_state.case_sensitive) {
+                    match = (strncmp(text + i, search_state.search_term, term_len) == 0);
+                } else {
+                    match = (strncasecmp_custom(text + i, search_state.search_term, term_len) == 0);
+                }
+                
+                if (match) {
+                    is_match_start = 1;
+                    // Check if this is the current match
+                    if (line_node == search_state.current_match_line && 
+                        i == (int)search_state.current_match_col) {
+                        // Highlight current match with cursor line color
+                        attroff(COLOR_PAIR(color_pair));
+                        attron(COLOR_PAIR(COLOR_PAIR_CURSOR_LINE));
+                    } else {
+                        // Highlight other matches with status bar color
+                        attroff(COLOR_PAIR(color_pair));
+                        attron(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
+                    }
+                }
+            }
+            
+            // Print the character
+            mvaddch(current_row, col + (i - segment_start), text[i]);
+            
+            // If we started highlighting a match, print the rest of the match
+            if (is_match_start) {
+                for (int j = 1; j < term_len && i + j < segment_end; j++) {
+                    mvaddch(current_row, col + (i + j - segment_start), text[i + j]);
+                }
+                i += term_len - 1; // Skip the rest of the match term
+                
+                // Restore normal color
+                attroff(COLOR_PAIR(COLOR_PAIR_CURSOR_LINE));
+                attroff(COLOR_PAIR(COLOR_PAIR_STATUS_BAR));
+                attron(COLOR_PAIR(color_pair));
+            }
+        }
+        
+        attroff(COLOR_PAIR(color_pair));
+        
+        if (line_wrap_enabled) {
+            pos = segment_end;
+            current_row++;
+        } else {
+            break;
+        }
+    }
 }
 
 void drawLineNumbers(int visible_lines, const TextBuffer *buffer, int top_line) {
@@ -170,8 +265,9 @@ void drawTextContent(int visible_lines, const TextBuffer *buffer, int top_line, 
         // Get the line text using gap buffer
         char *line_text = line_to_string(current_line_node);
         if (line_text) {
-            // Draw the line with wrapping
-            draw_wrapped_line(screen_row, 8, line_text, text_width, COLOR_PAIR_TEXT, line_wrap_enabled);
+            // Draw the line with wrapping and search highlighting
+            draw_line_with_search_highlight(screen_row, 8, line_text, text_width, 
+                                          COLOR_PAIR_TEXT, line_wrap_enabled, current_line_node);
             int wrapped_lines = get_wrapped_line_count(line_text, text_width, line_wrap_enabled);
             screen_row += wrapped_lines;
             free(line_text); // Don't forget to free!
@@ -489,6 +585,12 @@ void handleNormalModeInput(int ch, EditorState *state) {
     getmaxyx(stdscr, max_row, max_col);
     int visible_lines = max_row - 2;
 
+    // Initialize search state if not done yet
+    if (!search_initialized) {
+        init_search_state(&search_state);
+        search_initialized = 1;
+    }
+
     switch (ch) {
     // Movement keys
     case 'h':
@@ -532,6 +634,43 @@ void handleNormalModeInput(int ch, EditorState *state) {
     case KEY_DOWN: handleNormalModeInput('j', state); break;
     case KEY_LEFT: handleNormalModeInput('h', state); break;
     case KEY_RIGHT: handleNormalModeInput('l', state); break;
+
+    // Search functionality
+    case '/': // Forward search
+        state->current_mode = MODE_COMMAND;
+        clear_temp_message(state);
+        // The command handler will handle the search
+        break;
+    
+    case '?': // Backward search
+        state->current_mode = MODE_COMMAND;
+        clear_temp_message(state);
+        // The command handler will handle the search
+        break;
+    
+    case 'n': // Find next match
+        if (search_state.has_active_search) {
+            if (find_next_match(state, &search_state)) {
+                set_temp_message(state, "Found next match");
+            } else {
+                set_temp_message(state, "Search wrapped to beginning");
+            }
+        } else {
+            set_temp_message(state, "No active search");
+        }
+        break;
+    
+    case 'N': // Find previous match
+        if (search_state.has_active_search) {
+            if (find_previous_match(state, &search_state)) {
+                set_temp_message(state, "Found previous match");
+            } else {
+                set_temp_message(state, "Search wrapped to end");
+            }
+        } else {
+            set_temp_message(state, "No active search");
+        }
+        break;
 
     // Mode switching
     case 'i': state->current_mode = MODE_INSERT; break;
@@ -604,6 +743,7 @@ void handleNormalModeInput(int ch, EditorState *state) {
     case 27: // Escape
         state->current_mode = MODE_NORMAL;
         clear_temp_message(state);
+        // Clear search highlighting but keep search active
         break;
 
     case 'w': // Toggle wrap
@@ -653,11 +793,53 @@ void handleNormalModeInput(int ch, EditorState *state) {
 
 void handleCommandModeInput(int ch, char *command, EditorState *state) {
     static int command_index = 0;
+    static int is_search_command = 0; // Track if this is a search command
+    static int search_direction = 1; // 1 for forward, 0 for backward
     TextBuffer *buffer = &state->buffer;
+
+    // Initialize search state if not done yet
+    if (!search_initialized) {
+        init_search_state(&search_state);
+        search_initialized = 1;
+    }
+
+    // Check if we're starting a new command
+    if (command_index == 0 && (ch == '/' || ch == '?')) {
+        is_search_command = 1;
+        search_direction = (ch == '/') ? 1 : 0;
+        command[command_index++] = ch;
+        command[command_index] = '\0';
+        return;
+    }
 
     switch (ch) {
     case 10: // Enter key
-        if (strcmp(command, "q") == 0) {
+        if (is_search_command && command_index > 1) {
+            // Extract search term (skip the '/' or '?')
+            char *search_term = command + 1;
+            
+            if (strlen(search_term) > 0) {
+                if (perform_search(state, &search_state, search_term, search_direction)) {
+                    char msg[100];
+                    snprintf(msg, sizeof(msg), "Found: %s", search_term);
+                    set_temp_message(state, msg);
+                } else {
+                    set_temp_message(state, "Pattern not found");
+                }
+            } else {
+                // Empty search - repeat last search if available
+                if (search_state.has_active_search && strlen(search_state.search_term) > 0) {
+                    if (search_direction) {
+                        find_next_match(state, &search_state);
+                    } else {
+                        find_previous_match(state, &search_state);
+                    }
+                    set_temp_message(state, "Repeated last search");
+                } else {
+                    set_temp_message(state, "No previous search");
+                }
+            }
+        } else if (strcmp(command, "q") == 0) {
             endwin();
             exit(EXIT_SUCCESS);
         } else if (strcmp(command, "w") == 0) {
@@ -696,26 +878,48 @@ void handleCommandModeInput(int ch, char *command, EditorState *state) {
             // Disable line wrapping
             state->line_wrap_enabled = 0;
             set_temp_message(state, "Line wrap disabled");
-        } else {
+        } else if (strcmp(command, "nohl") == 0 || strcmp(command, "nohlsearch") == 0) {
+            // Clear search highlighting
+            clear_search(&search_state);
+            set_temp_message(state, "Search cleared");
+        } else if (strcmp(command, "set ic") == 0) {
+            // Set ignore case
+            search_state.case_sensitive = 0;
+            set_temp_message(state, "Search is now case insensitive");
+        } else if (strcmp(command, "set noic") == 0) {
+            // Unset ignore case
+            search_state.case_sensitive = 1;
+            set_temp_message(state, "Search is now case sensitive");
+        } else if (!is_search_command) {
             set_temp_message(state, "Unknown command");
         }
 
         command[0] = '\0'; // Reset command buffer
         command_index = 0; // Reset command index
+        is_search_command = 0; // Reset search command flag
         state->current_mode = MODE_NORMAL;  // Return to normal mode
         break;
+        
     case 27: // Escape key
         command[0] = '\0'; // Reset command buffer
         command_index = 0; // Reset command index
+        is_search_command = 0; // Reset search command flag
         state->current_mode = MODE_NORMAL; // Return to normal mode
         break;
+        
     case KEY_BACKSPACE:
     case 127: // Backspace in command mode
         if (command_index > 0) {
             command_index--;
             command[command_index] = '\0';
+            
+            // If we backspace past the search character, exit search mode
+            if (is_search_command && command_index == 0) {
+                is_search_command = 0;
+            }
         }
         break;
+        
     default:
         if (isprint(ch) && command_index < MAX_COMMAND_LENGTH - 1) {
             command[command_index++] = ch;

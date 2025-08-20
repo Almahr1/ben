@@ -10,9 +10,9 @@
 #include "data_structures.h"
 #include "color_config.h"
 #include "editor_state.h"
-// Note: undo.h is included in the .c file to avoid circular dependencies
+// Note: undo.h and search.h are included in the .c file to avoid circular dependencies
 
-#define MAX_COMMAND_LENGTH 30
+#define MAX_COMMAND_LENGTH 256  // Increased to accommodate longer search terms
 
 // File operations
 void saveToFile(const char *filename, TextBuffer *buffer);
@@ -27,6 +27,8 @@ void drawModeIndicator(EditorMode mode, int line_wrap_enabled);
 // Line wrapping functions
 int get_wrapped_line_count(const char *text, int max_width, int line_wrap_enabled);
 void draw_wrapped_line(int row, int col, const char *text, int max_width, int color_pair, int line_wrap_enabled);
+void draw_line_with_search_highlight(int row, int col, const char *text, int max_width, 
+                                   int color_pair, int line_wrap_enabled, Line *line_node);
 int get_cursor_screen_row(const TextBuffer *buffer, int visible_lines, int top_line, int line_wrap_enabled);
 
 // Input handling

@@ -7,7 +7,7 @@
 typedef enum {
     MODE_NORMAL,
     MODE_INSERT,
-    MODE_COMMAND
+    MODE_COMMAND,
 } EditorMode;
 
 // Centralized editor state structure

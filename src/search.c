@@ -1,7 +1,17 @@
+#ifdef _WIN32
+#include <pdcurses.h>
+#else
+#include <ncurses.h>
+#endif
+
 #include "search.h"
-#include "text_editor_functions.h"
+#include "data_structures.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
+
+// Forward declarations to avoid circular dependencies
+extern int get_absolute_line_number(const TextBuffer *buffer, Line *target_line);
 
 void init_search_state(SearchState *search_state) {
     if (!search_state) return;
@@ -133,18 +143,17 @@ void jump_to_match(EditorState *state, SearchState *search_state) {
     getmaxyx(stdscr, max_row, max_col);
     int visible_lines = max_row - 2;
     
-    int cursor_screen_row = get_cursor_screen_row(&state->buffer, visible_lines, state->top_line, state->line_wrap_enabled);
+    // Calculate which line number the match is on
+    int target_line_num = get_absolute_line_number(&state->buffer, search_state->current_match_line);
     
     // Adjust scrolling to keep the match visible
-    if (cursor_screen_row < 1) {
+    if (target_line_num < state->top_line) {
         // Match is above visible area
-        int target_line = get_absolute_line_number(&state->buffer, search_state->current_match_line);
-        state->top_line = target_line - visible_lines / 4; // Show match in upper quarter
+        state->top_line = target_line_num - visible_lines / 4; // Show match in upper quarter
         if (state->top_line < 0) state->top_line = 0;
-    } else if (cursor_screen_row > visible_lines) {
+    } else if (target_line_num >= state->top_line + visible_lines) {
         // Match is below visible area
-        int target_line = get_absolute_line_number(&state->buffer, search_state->current_match_line);
-        state->top_line = target_line - (visible_lines * 3 / 4); // Show match in lower quarter
+        state->top_line = target_line_num - (visible_lines * 3 / 4); // Show match in lower quarter
         if (state->top_line < 0) state->top_line = 0;
     }
 }

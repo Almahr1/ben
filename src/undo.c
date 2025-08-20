@@ -128,8 +128,39 @@ void perform_undo(TextBuffer *buffer) {
     
     UndoOperation *op = &undo_stack.operations[undo_stack.current];
     
-    // Validate the target line still exists in the buffer
-    if (!op->is_valid || !is_line_valid_in_buffer(buffer, op->target_line)) {
+    // Special handling for UNDO_INSERT_LINE with NULL target (first line)
+    if (op->type == UNDO_INSERT_LINE && op->target_line == NULL) {
+        // This was an insertion at the beginning of the buffer
+        Line *to_remove = buffer->head;
+        if (to_remove) {
+            // Invalidate any operations that reference the line being removed
+            invalidate_undo_operations_for_line(to_remove);
+            
+            // Update current line pointer if it's pointing to the line being removed
+            if (buffer->current_line_node == to_remove) {
+                buffer->current_line_node = to_remove->next;
+                buffer->current_col_offset = 0;
+            }
+            
+            // Remove the first line
+            buffer->head = to_remove->next;
+            if (buffer->head) {
+                buffer->head->prev = NULL;
+            } else {
+                buffer->tail = NULL;
+            }
+            
+            gap_buffer_destroy(to_remove->gb);
+            free(to_remove);
+            buffer->num_lines--;
+        }
+        undo_stack.current--;
+        validate_cursor_position(buffer);
+        return;
+    }
+    
+    // Validate the target line still exists in the buffer (for non-NULL targets)
+    if (op->target_line && (!op->is_valid || !is_line_valid_in_buffer(buffer, op->target_line))) {
         op->is_valid = 0; // Mark as invalid
         undo_stack.current--; // Skip this invalid operation
         return;
@@ -151,7 +182,8 @@ void perform_undo(TextBuffer *buffer) {
             break;
             
         case UNDO_DELETE_CHAR:
-            if (op->col_pos <= line_get_length(target_line)) {
+            // Only restore the character if the position is valid and makes sense
+            if (op->col_pos <= line_get_length(target_line) && op->data_len > 0) {
                 line_insert_char_at(target_line, op->col_pos, op->data[0]);
                 
                 // Update cursor if it's on this line
@@ -163,6 +195,7 @@ void perform_undo(TextBuffer *buffer) {
             break;
             
         case UNDO_INSERT_LINE: {
+            // Normal case - target_line is not NULL
             Line *to_remove = target_line->next;
             if (to_remove) {
                 // Invalidate any operations that reference the line being removed

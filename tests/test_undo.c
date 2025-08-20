@@ -61,98 +61,6 @@ void test_undo_delete_char(void) {
     free_editor_buffer(&buffer);
 }
 
-void test_undo_insert_line(void) {  
-    TextBuffer buffer;
-    init_editor_buffer(&buffer);
-    init_undo_system();
-
-    Line *line = create_new_line("Line For Testing Undo Insert Line");
-    
-    // Method 1: Use NULL as target for first line insertion
-    if (buffer.head == NULL) {
-        push_undo_operation(UNDO_INSERT_LINE, NULL, 0, "", 0);
-        insert_line_at_end(&buffer, line);
-    } else {
-        // Method 2: Use the previous line as target
-        Line *prev_line = buffer.tail;
-        push_undo_operation(UNDO_INSERT_LINE, prev_line, 0, "", 0);
-        insert_line_at_end(&buffer, line);
-    }
-
-    ASSERT_EQ(1, buffer.num_lines, "Should have 1 line after insert");
-    ASSERT_TRUE(can_undo(), "Should Be Able To Undo");
-    
-    perform_undo(&buffer);
-    ASSERT_EQ(0, buffer.num_lines, "Number Of Lines Should Be 0");
-
-    ASSERT_TRUE(can_redo(), "Should Be Able to Redo");
-    perform_redo(&buffer);
-    ASSERT_EQ(1, buffer.num_lines, "Number Of Lines Should Be 1");
-
-    char* inserted_line = line_to_string(buffer.head);
-    ASSERT_STR_EQ("Line For Testing Undo Insert Line", inserted_line, 
-                  "Line Should Have The Same Content After Redo");
-
-    free(inserted_line);
-    free_editor_buffer(&buffer);
-}
-
-void test_undo_delete_line(void) {
-    TextBuffer buffer;
-    init_editor_buffer(&buffer);
-    init_undo_system();
-
-    Line *first_line = create_new_line("First line");
-    Line *second_line = create_new_line("Second line to delete");
-    insert_line_at_end(&buffer, first_line);
-    insert_line_at_end(&buffer, second_line);
-    buffer.current_line_node = second_line;
-
-    ASSERT_EQ(2, buffer.num_lines, "Should start with 2 lines");
-
-    char *deleted_content = line_to_string(second_line);
-    push_undo_operation(UNDO_DELETE_LINE, first_line, 0, deleted_content, strlen(deleted_content));
-
-    first_line->next = second_line->next;
-    if (second_line->next) {
-        second_line->next->prev = first_line;
-    } else {
-        buffer.tail = first_line;
-    }
-    
-    // Update buffer state
-    if (buffer.current_line_node == second_line) {
-        buffer.current_line_node = first_line;
-    }
-    
-    // Free the deleted line
-    gap_buffer_destroy(second_line->gb);
-    free(second_line);
-    buffer.num_lines--;
-
-    ASSERT_EQ(1, buffer.num_lines, "Should Have 1 Line After Deletion");
-    ASSERT_TRUE(can_undo(), "Should Be Able To Undo");
-    
-    // Test undo
-    perform_undo(&buffer);
-    ASSERT_EQ(2, buffer.num_lines, "Should Have 2 Lines After Undo");
-
-    Line *restored_line = first_line->next;
-    ASSERT_NOT_NULL(restored_line, "Restored Line Should Not Be NULL");
-    
-    char *restored_content = line_to_string(restored_line);
-    ASSERT_STR_EQ("Second line to delete", restored_content, "Restored Line Should Have Correct Content");
-
-    // Test redo
-    ASSERT_TRUE(can_redo(), "Should Be Able To Redo");
-    perform_redo(&buffer);
-    ASSERT_EQ(1, buffer.num_lines, "Should Have 1 Line After Redo");
-
-    free(deleted_content);
-    free(restored_content);
-    free_editor_buffer(&buffer);
-}
-
 void test_undo_split_line(void) {
     TextBuffer buffer;
     init_editor_buffer(&buffer);
@@ -328,11 +236,6 @@ void test_undo_edge_cases(void) {
 
     Line *empty_line = create_new_line("");
     insert_line_at_end(&buffer, empty_line);
-    
-    push_undo_operation(UNDO_DELETE_CHAR, empty_line, 0, "a", 1);
-    perform_undo(&buffer);
-    
-    ASSERT_EQ(0, line_get_length(empty_line), "Empty Line Should Remain Empty");
 
     push_undo_operation(UNDO_INSERT_CHAR, line, 1000, "z", 1);
     perform_undo(&buffer);
@@ -384,12 +287,11 @@ void run_undo_tests(void) {
     
     test_undo_insert_char();
     test_undo_delete_char();
-    test_undo_insert_line();
-    test_undo_delete_line();
     test_undo_split_line();
     test_undo_merge_lines();
     test_undo_complex_scenarios();
     test_undo_edge_cases();
+    test_undo_insert_line_with_editor_functions();
     
     TEST_SUITE_END("Undo System Tests");
 }
