@@ -5,7 +5,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-// ANSI escape codes for terminal colors, renamed to avoid conflicts
 #define TEST_COLOR_RED     "\033[31m"
 #define TEST_COLOR_GREEN   "\033[32m"
 #define TEST_COLOR_BLUE    "\033[34m"
@@ -16,7 +15,6 @@ extern int tests_run;
 extern int tests_passed;
 extern int tests_failed;
 
-// Function declarations
 void init_test_framework(void);
 void print_test_summary(void);
 
