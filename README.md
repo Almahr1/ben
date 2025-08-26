@@ -1,6 +1,6 @@
 # Ben: A Vim-like Text Editor
 
-A minimalist, Vim-inspired text editor built in C with ncurses. Features modal editing, undo/redo, search functionality, and line wrapping.
+A minimalist, Vim-inspired text editor built in C with ncurses.
 
 ## Installation
 
