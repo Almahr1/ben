@@ -57,10 +57,8 @@ void gap_buffer_ensure_capacity(GapBuffer *gb, size_t needed_capacity) {
     char *new_buffer = malloc(new_capacity);
     if (!new_buffer) return; // Failed to allocate
     
-    // Copy data before gap
     memcpy(new_buffer, gb->buffer, gb->gap_start);
     
-    // Copy data after gap to new position
     size_t after_gap_size = gb->capacity - gb->gap_end;
     size_t new_gap_end = new_capacity - after_gap_size;
     memcpy(new_buffer + new_gap_end, gb->buffer + gb->gap_end, after_gap_size);
@@ -77,21 +75,18 @@ void gap_buffer_move_cursor_to(GapBuffer *gb, size_t position) {
     }
     
     if (position < gb->gap_start) {
-        // Move gap left
         size_t move_size = gb->gap_start - position;
         memmove(gb->buffer + gb->gap_end - move_size, 
                 gb->buffer + position, move_size);
         gb->gap_start = position;
         gb->gap_end -= move_size;
     } else if (position > gb->gap_start) {
-        // Move gap right
         size_t move_size = position - gb->gap_start;
         memmove(gb->buffer + gb->gap_start, 
                 gb->buffer + gb->gap_end, move_size);
         gb->gap_start = position;
         gb->gap_end += move_size;
     }
-    // If position == gb->gap_start, gap is already at cursor
 }
 
 void gap_buffer_insert_char(GapBuffer *gb, char c) {
@@ -109,12 +104,10 @@ void gap_buffer_insert_string(GapBuffer *gb, const char *str) {
     size_t str_len = strlen(str);
     if (str_len == 0) return;
     
-    // Ensure we have enough space
     if (gap_buffer_gap_size(gb) < str_len) {
         gap_buffer_ensure_capacity(gb, gb->capacity + str_len + MIN_GAP_SIZE);
     }
     
-    // Insert each character
     for (size_t i = 0; i < str_len; i++) {
         gap_buffer_insert_char(gb, str[i]);
     }
@@ -149,10 +142,8 @@ char* gap_buffer_to_string(const GapBuffer *gb) {
     char *result = malloc(length + 1);
     if (!result) return NULL;
     
-    // Copy data before gap
     memcpy(result, gb->buffer, gb->gap_start);
     
-    // Copy data after gap
     size_t after_gap_size = gb->capacity - gb->gap_end;
     memcpy(result + gb->gap_start, gb->buffer + gb->gap_end, after_gap_size);
     
@@ -170,7 +161,7 @@ void gap_buffer_print_debug(const GapBuffer *gb) {
     printf("  Buffer: \"");
     for (size_t i = 0; i < gb->capacity; i++) {
         if (i >= gb->gap_start && i < gb->gap_end) {
-            printf("_"); // Represent gap as underscores
+            printf("_");
         } else {
             char c = gb->buffer[i];
             if (c >= 32 && c <= 126) {

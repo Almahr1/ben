@@ -6,17 +6,14 @@
 void init_editor_state(EditorState *state, const char *filename) {
     if (!state) return;
     
-    // Initialize the text buffer
     init_editor_buffer(&state->buffer);
     
-    // Set initial state
     state->current_mode = MODE_NORMAL;
     state->top_line = 0;
-    state->line_wrap_enabled = 1;  // Enable line wrapping by default
-    state->temp_message[0] = '\0'; // Clear temp message
-    state->filename = filename;    // Store filename (can be NULL)
+    state->line_wrap_enabled = 1;
+    state->temp_message[0] = '\0';
+    state->filename = filename;
     
-    // Load file or create empty buffer
     if (filename) {
         loadFromFile(filename, &state->buffer);
     } else {
@@ -25,7 +22,6 @@ void init_editor_state(EditorState *state, const char *filename) {
         state->buffer.current_line_node = initial_line;
     }
     
-    // Safety check - ensure we always have at least one line and valid cursor position
     if (state->buffer.head == NULL) {
         Line *initial_line = create_new_line("");
         insert_line_at_end(&state->buffer, initial_line);
@@ -41,7 +37,6 @@ void free_editor_state(EditorState *state) {
     if (!state) return;
     
     free_editor_buffer(&state->buffer);
-    // Note: filename is not owned by EditorState, so we don't free it
 }
 
 void set_temp_message(EditorState *state, const char *message) {

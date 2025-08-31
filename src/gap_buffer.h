@@ -4,10 +4,10 @@
 #include <stddef.h>
 
 typedef struct {
-    char *buffer;           
-    size_t capacity;      
-    size_t gap_start;       
-    size_t gap_end;         
+    char *buffer;
+    size_t capacity;
+    size_t gap_start;
+    size_t gap_end;
 } GapBuffer;
 
 GapBuffer* gap_buffer_create(size_t initial_capacity);

@@ -8,7 +8,7 @@
 #endif
 
 // Color Configuration - Change these values to customize the editor appearance
-// Available colors: COLOR_BLACK, COLOR_RED, COLOR_GREEN, COLOR_YELLOW, 
+// Available colors: COLOR_BLACK, COLOR_RED, COLOR_GREEN, COLOR_YELLOW,
 //                  COLOR_BLUE, COLOR_MAGENTA, COLOR_CYAN, COLOR_WHITE
 
 #define TEXT_FG_COLOR           COLOR_CYAN

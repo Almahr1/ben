@@ -1,234 +1,305 @@
 #define _POSIX_C_SOURCE 200809L
 
-#include <sys/types.h>
+#include "data_structures.h"
+#include "gap_buffer.h"
+#include "text_editor_functions.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "data_structures.h"
-#include "text_editor_functions.h"
-#include "gap_buffer.h"
+#include <sys/types.h>
 
-void insert_line_after(TextBuffer *buffer, Line *prev_line, Line *new_line) {
-    if (!buffer || !new_line) return;
-    
-    if (prev_line == NULL) {
-        insert_line_at_beginning(buffer, new_line);
-        return;
+void
+insert_line_after (TextBuffer *buffer, Line *prev_line, Line *new_line)
+{
+  if (!buffer || !new_line)
+    return;
+
+  if (prev_line == NULL)
+    {
+      insert_line_at_beginning (buffer, new_line);
+      return;
     }
 
-    new_line->next = prev_line->next;
-    prev_line->next = new_line;
-    new_line->prev = prev_line;
+  new_line->next = prev_line->next;
+  prev_line->next = new_line;
+  new_line->prev = prev_line;
 
-    if (new_line->next != NULL) {
-        new_line->next->prev = new_line;
+  if (new_line->next != NULL)
+    {
+      new_line->next->prev = new_line;
     }
 
-    buffer->num_lines++;
+  buffer->num_lines++;
 
-    if (prev_line == buffer->tail) {
-        buffer->tail = new_line;
+  if (prev_line == buffer->tail)
+    {
+      buffer->tail = new_line;
     }
 }
 
-void insert_line_after_buffer(TextBuffer *buffer, Line *prev_line, Line *new_line) {
-    insert_line_after(buffer, prev_line, new_line);
+void
+insert_line_after_buffer (TextBuffer *buffer, Line *prev_line, Line *new_line)
+{
+  insert_line_after (buffer, prev_line, new_line);
 }
 
-void insert_line_at_beginning(TextBuffer *buffer, Line *new_line) {
-    if (!buffer || !new_line) return;
-    
-    new_line->next = buffer->head;
-    new_line->prev = NULL;
-    
-    if (buffer->head != NULL) {
-        buffer->head->prev = new_line;
-    } else {
-        buffer->tail = new_line;
+void
+insert_line_at_beginning (TextBuffer *buffer, Line *new_line)
+{
+  if (!buffer || !new_line)
+    return;
+
+  new_line->next = buffer->head;
+  new_line->prev = NULL;
+
+  if (buffer->head != NULL)
+    {
+      buffer->head->prev = new_line;
     }
-    
-    buffer->head = new_line;
-    buffer->num_lines++;
+  else
+    {
+      buffer->tail = new_line;
+    }
+
+  buffer->head = new_line;
+  buffer->num_lines++;
 }
 
-void init_editor_buffer(TextBuffer *buffer) {
-    if (!buffer) return;
-    
-    buffer->head = NULL;
-    buffer->tail = NULL;
-    buffer->num_lines = 0;
-    buffer->current_line_node = NULL;
-    buffer->current_col_offset = 0;
+void
+init_editor_buffer (TextBuffer *buffer)
+{
+  if (!buffer)
+    return;
+
+  buffer->head = NULL;
+  buffer->tail = NULL;
+  buffer->num_lines = 0;
+  buffer->current_line_node = NULL;
+  buffer->current_col_offset = 0;
 }
 
-Line* create_new_line(const char *content) {
-    Line *new_line = (Line *)malloc(sizeof(Line));
-    if (new_line == NULL) {
-        perror("Memory allocation failed");
-        exit(EXIT_FAILURE);
+Line *
+create_new_line (const char *content)
+{
+  Line *new_line = (Line *)malloc (sizeof (Line));
+  if (new_line == NULL)
+    {
+      perror ("Memory allocation failed");
+      exit (EXIT_FAILURE);
     }
 
-    new_line->gb = gap_buffer_create(strlen(content) + 16);
-    if (new_line->gb == NULL) {
-        free(new_line);
-        perror("Gap buffer creation failed");
-        exit(EXIT_FAILURE);
+  new_line->gb = gap_buffer_create (strlen (content) + 16);
+  if (new_line->gb == NULL)
+    {
+      free (new_line);
+      perror ("Gap buffer creation failed");
+      exit (EXIT_FAILURE);
     }
 
-    gap_buffer_insert_string(new_line->gb, content);
+  gap_buffer_insert_string (new_line->gb, content);
 
-    new_line->next = NULL;
-    new_line->prev = NULL;
-    return new_line;
+  new_line->next = NULL;
+  new_line->prev = NULL;
+  return new_line;
 }
 
-Line* create_new_line_empty() {
-    Line *new_line = (Line *)malloc(sizeof(Line));
-    if (new_line == NULL) {
-        perror("Memory allocation failed");
-        exit(EXIT_FAILURE);
+Line *
+create_new_line_empty ()
+{
+  Line *new_line = (Line *)malloc (sizeof (Line));
+  if (new_line == NULL)
+    {
+      perror ("Memory allocation failed");
+      exit (EXIT_FAILURE);
     }
 
-    new_line->gb = gap_buffer_create(16);
-    if (new_line->gb == NULL) {
-        free(new_line);
-        perror("Gap buffer creation failed");
-        exit(EXIT_FAILURE);
+  new_line->gb = gap_buffer_create (16);
+  if (new_line->gb == NULL)
+    {
+      free (new_line);
+      perror ("Gap buffer creation failed");
+      exit (EXIT_FAILURE);
     }
 
-    new_line->next = NULL;
-    new_line->prev = NULL;
-    return new_line;
+  new_line->next = NULL;
+  new_line->prev = NULL;
+  return new_line;
 }
 
-void insert_line_at_end(TextBuffer *buffer, Line *new_line) {
-    if (!buffer || !new_line) return;
-    
-    if (buffer->tail == NULL) {
-        buffer->head = new_line;
-        buffer->tail = new_line;
-    } else {
-        buffer->tail->next = new_line;
-        new_line->prev = buffer->tail;
-        buffer->tail = new_line;
+void
+insert_line_at_end (TextBuffer *buffer, Line *new_line)
+{
+  if (!buffer || !new_line)
+    return;
+
+  if (buffer->tail == NULL)
+    {
+      buffer->head = new_line;
+      buffer->tail = new_line;
     }
-    buffer->num_lines++;
+  else
+    {
+      buffer->tail->next = new_line;
+      new_line->prev = buffer->tail;
+      buffer->tail = new_line;
+    }
+  buffer->num_lines++;
 }
 
-void free_editor_buffer(TextBuffer *buffer) {
-    if (!buffer) return;
-    
-    Line *current = buffer->head;
-    while (current != NULL) {
-        Line *temp = current;
-        current = current->next;
-        gap_buffer_destroy(temp->gb);
-        free(temp);
+void
+free_editor_buffer (TextBuffer *buffer)
+{
+  if (!buffer)
+    return;
+
+  Line *current = buffer->head;
+  while (current != NULL)
+    {
+      Line *temp = current;
+      current = current->next;
+      gap_buffer_destroy (temp->gb);
+      free (temp);
     }
-    buffer->head = NULL;
-    buffer->tail = NULL;
-    buffer->num_lines = 0;
-    buffer->current_line_node = NULL;
-    buffer->current_col_offset = 0;
+  buffer->head = NULL;
+  buffer->tail = NULL;
+  buffer->num_lines = 0;
+  buffer->current_line_node = NULL;
+  buffer->current_col_offset = 0;
 }
 
-void saveToFile(const char *filename, TextBuffer *buffer) {
-    if (!filename || !buffer) return;
-    
-    FILE *file = fopen(filename, "w");
-    if (file == NULL) {
-        return;
+void
+saveToFile (const char *filename, TextBuffer *buffer)
+{
+  if (!filename || !buffer)
+    return;
+
+  FILE *file = fopen (filename, "w");
+  if (file == NULL)
+    {
+      return;
     }
 
-    Line *current_line = buffer->head;
-    while (current_line != NULL) {
-        char *line_text = line_to_string(current_line);
-        if (line_text) {
-            fprintf(file, "%s\n", line_text);
-            free(line_text);
+  Line *current_line = buffer->head;
+  while (current_line != NULL)
+    {
+      char *line_text = line_to_string (current_line);
+      if (line_text)
+        {
+          fprintf (file, "%s\n", line_text);
+          free (line_text);
         }
-        current_line = current_line->next;
+      current_line = current_line->next;
     }
 
-    fclose(file);
+  fclose (file);
 }
 
-void loadFromFile(const char *filename, TextBuffer *buffer) {
-    if (!filename || !buffer) return;
-    
-    FILE *file = fopen(filename, "r");
-    if (file == NULL) {
-        init_editor_buffer(buffer);
-        Line *initial_line = create_new_line_empty();
-        insert_line_at_end(buffer, initial_line);
-        buffer->current_line_node = initial_line;
-        buffer->current_col_offset = 0;
-        return;
+void
+loadFromFile (const char *filename, TextBuffer *buffer)
+{
+  if (!filename || !buffer)
+    return;
+
+  FILE *file = fopen (filename, "r");
+  if (file == NULL)
+    {
+      init_editor_buffer (buffer);
+      Line *initial_line = create_new_line_empty ();
+      insert_line_at_end (buffer, initial_line);
+      buffer->current_line_node = initial_line;
+      buffer->current_col_offset = 0;
+      return;
     }
 
-    free_editor_buffer(buffer);
+  free_editor_buffer (buffer);
 
-    char *line_buffer = NULL;
-    size_t len = 0;
-    ssize_t read;
+  char *line_buffer = NULL;
+  size_t len = 0;
+  ssize_t read;
 
-    while ((read = getline(&line_buffer, &len, file)) != -1) {
-        if (line_buffer[read - 1] == '\n') {
-            line_buffer[read - 1] = '\0';
+  while ((read = getline (&line_buffer, &len, file)) != -1)
+    {
+      if (line_buffer[read - 1] == '\n')
+        {
+          line_buffer[read - 1] = '\0';
         }
-        Line *new_line = create_new_line(line_buffer);
-        insert_line_at_end(buffer, new_line);
+      Line *new_line = create_new_line (line_buffer);
+      insert_line_at_end (buffer, new_line);
     }
 
-    free(line_buffer);
-    fclose(file);
+  free (line_buffer);
+  fclose (file);
 
-    if (buffer->head == NULL) {
-        Line *initial_line = create_new_line_empty();
-        insert_line_at_end(buffer, initial_line);
-        buffer->current_line_node = initial_line;
-        buffer->current_col_offset = 0;
-    } else {
-        buffer->current_line_node = buffer->head;
-        buffer->current_col_offset = 0;
+  if (buffer->head == NULL)
+    {
+      Line *initial_line = create_new_line_empty ();
+      insert_line_at_end (buffer, initial_line);
+      buffer->current_line_node = initial_line;
+      buffer->current_col_offset = 0;
+    }
+  else
+    {
+      buffer->current_line_node = buffer->head;
+      buffer->current_col_offset = 0;
     }
 }
 
-size_t line_get_length(const Line *line) {
-    if (!line || !line->gb) return 0;
-    return gap_buffer_length(line->gb);
+size_t
+line_get_length (const Line *line)
+{
+  if (!line || !line->gb)
+    return 0;
+  return gap_buffer_length (line->gb);
 }
 
-char line_get_char_at(const Line *line, size_t position) {
-    if (!line || !line->gb) return '\0';
-    return gap_buffer_get_char_at(line->gb, position);
+char
+line_get_char_at (const Line *line, size_t position)
+{
+  if (!line || !line->gb)
+    return '\0';
+  return gap_buffer_get_char_at (line->gb, position);
 }
 
-char* line_to_string(const Line *line) {
-    if (!line || !line->gb) return NULL;
-    return gap_buffer_to_string(line->gb);
+char *
+line_to_string (const Line *line)
+{
+  if (!line || !line->gb)
+    return NULL;
+  return gap_buffer_to_string (line->gb);
 }
 
-void line_insert_char_at(Line *line, size_t position, char c) {
-    if (!line || !line->gb) return;
-    gap_buffer_move_cursor_to(line->gb, position);
-    gap_buffer_insert_char(line->gb, c);
+void
+line_insert_char_at (Line *line, size_t position, char c)
+{
+  if (!line || !line->gb)
+    return;
+  gap_buffer_move_cursor_to (line->gb, position);
+  gap_buffer_insert_char (line->gb, c);
 }
 
-void line_insert_string_at(Line *line, size_t position, const char *str) {
-    if (!line || !line->gb || !str) return;
-    gap_buffer_move_cursor_to(line->gb, position);
-    gap_buffer_insert_string(line->gb, str);
+void
+line_insert_string_at (Line *line, size_t position, const char *str)
+{
+  if (!line || !line->gb || !str)
+    return;
+  gap_buffer_move_cursor_to (line->gb, position);
+  gap_buffer_insert_string (line->gb, str);
 }
 
-void line_delete_char_at(Line *line, size_t position) {
-    if (!line || !line->gb) return;
-    gap_buffer_move_cursor_to(line->gb, position);
-    gap_buffer_delete_char(line->gb);
+void
+line_delete_char_at (Line *line, size_t position)
+{
+  if (!line || !line->gb)
+    return;
+  gap_buffer_move_cursor_to (line->gb, position);
+  gap_buffer_delete_char (line->gb);
 }
 
-void line_delete_char_before(Line *line, size_t position) {
-    if (!line || !line->gb || position == 0) return;
-    gap_buffer_move_cursor_to(line->gb, position);
-    gap_buffer_delete_char_before(line->gb);
+void
+line_delete_char_before (Line *line, size_t position)
+{
+  if (!line || !line->gb || position == 0)
+    return;
+  gap_buffer_move_cursor_to (line->gb, position);
+  gap_buffer_delete_char_before (line->gb);
 }
