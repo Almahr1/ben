@@ -346,7 +346,6 @@ find_next_match (EditorState *state, SearchState *search_state)
   size_t start_col = search_state->current_match_col + 1;
   size_t match_col;
 
-  // Search in current line first
   if (search_in_line (current_line, search_state->search_term, start_col,
                       search_state->case_sensitive, &match_col))
     {
@@ -355,7 +354,6 @@ find_next_match (EditorState *state, SearchState *search_state)
       return 1;
     }
 
-  // Search in subsequent lines
   current_line = current_line->next;
   while (current_line != NULL)
     {
@@ -370,7 +368,6 @@ find_next_match (EditorState *state, SearchState *search_state)
       current_line = current_line->next;
     }
 
-  // Wrap around to beginning
   current_line = state->buffer.head;
   while (current_line != search_state->current_match_line
          && current_line != NULL)
@@ -420,7 +417,6 @@ find_previous_match (EditorState *state, SearchState *search_state)
                          : 0;
   size_t match_col;
 
-  // Search in current line first (backwards)
   if (search_state->current_match_col > 0
       && search_in_line_backward (current_line, search_state->search_term,
                                   start_col, search_state->case_sensitive,
@@ -431,7 +427,6 @@ find_previous_match (EditorState *state, SearchState *search_state)
       return 1;
     }
 
-  // Search in previous lines
   current_line = current_line->prev;
   while (current_line != NULL)
     {
@@ -449,7 +444,6 @@ find_previous_match (EditorState *state, SearchState *search_state)
       current_line = current_line->prev;
     }
 
-  // Wrap around to end
   current_line = state->buffer.tail;
   while (current_line != search_state->current_match_line
          && current_line != NULL)

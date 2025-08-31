@@ -54,7 +54,6 @@ drawModeIndicator (EditorMode mode, int line_wrap_enabled)
   int color_pair;
   const char *mode_text = get_mode_string (mode);
 
-  // Select appropriate color pair for the mode
   switch (mode)
     {
     case MODE_NORMAL:
@@ -71,18 +70,15 @@ drawModeIndicator (EditorMode mode, int line_wrap_enabled)
       break;
     }
 
-  // Draw the mode indicator rectangle in top-left corner
   attron (COLOR_PAIR (color_pair));
   mvprintw (0, 0, " %s ", mode_text);
   attroff (COLOR_PAIR (color_pair));
 
-  // Add wrap indicator
   if (line_wrap_enabled)
     {
       mvprintw (0, strlen (mode_text) + 3, " [WRAP] ");
     }
 
-  // Add search indicator if there's an active search
   if (!search_initialized)
     {
       init_search_state (&search_state);
@@ -110,7 +106,7 @@ get_wrapped_line_count (const char *text, int max_width, int line_wrap_enabled)
       return 1;
     }
 
-  return (len + max_width - 1) / max_width; // Ceiling division
+  return (len + max_width - 1) / max_width;
 }
 
 void
@@ -167,13 +163,11 @@ draw_line_with_search_highlight (int row, int col, const char *text,
       if (line_end > len)
         line_end = len;
 
-      // Check for search matches in this wrapped line segment
       int segment_start = pos;
       int segment_end = line_end;
 
       attron (COLOR_PAIR (color_pair));
 
-      // Draw character by character to handle highlighting
       for (int i = segment_start; i < segment_end; i++)
         {
           int is_match_start = 0;
@@ -948,7 +942,6 @@ handleCommandModeInput (int ch, char *command, EditorState *state)
       search_initialized = 1;
     }
 
-  // Check if we're starting a new command
   if (command_index == 0 && (ch == '/' || ch == '?'))
     {
       is_search_command = 1;
@@ -963,7 +956,6 @@ handleCommandModeInput (int ch, char *command, EditorState *state)
     case 10:
       if (is_search_command && command_index > 1)
         {
-          // Extract search term (skip the '/' or '?')
           char *search_term = command + 1;
 
           if (strlen (search_term) > 0)
@@ -982,7 +974,6 @@ handleCommandModeInput (int ch, char *command, EditorState *state)
             }
           else
             {
-              // Empty search - repeat last search if available
               if (search_state.has_active_search
                   && strlen (search_state.search_term) > 0)
                 {
@@ -1021,7 +1012,6 @@ handleCommandModeInput (int ch, char *command, EditorState *state)
         }
       else if (strncmp (command, "w ", 2) == 0)
         {
-          // Save with specified filename: "w filename.txt"
           const char *save_filename = command + 2; // Skip "w "
           if (strlen (save_filename) > 0)
             {
@@ -1040,7 +1030,6 @@ handleCommandModeInput (int ch, char *command, EditorState *state)
         }
       else if (strncmp (command, "wq ", 3) == 0)
         {
-          // Save with specified filename and quit: "wq filename.txt"
           const char *save_filename = command + 3; // Skip "wq "
           if (strlen (save_filename) > 0)
             {
@@ -1051,32 +1040,27 @@ handleCommandModeInput (int ch, char *command, EditorState *state)
         }
       else if (strcmp (command, "wrap") == 0)
         {
-          // Toggle line wrapping
           state->line_wrap_enabled = 1;
           set_temp_message (state, "Line wrap enabled");
         }
       else if (strcmp (command, "nowrap") == 0)
         {
-          // Disable line wrapping
           state->line_wrap_enabled = 0;
           set_temp_message (state, "Line wrap disabled");
         }
       else if (strcmp (command, "nohl") == 0
                || strcmp (command, "nohlsearch") == 0)
         {
-          // Clear search highlighting
           clear_search (&search_state);
           set_temp_message (state, "Search cleared");
         }
       else if (strcmp (command, "set ic") == 0)
         {
-          // Set ignore case
           search_state.case_sensitive = 0;
           set_temp_message (state, "Search is now case insensitive");
         }
       else if (strcmp (command, "set noic") == 0)
         {
-          // Unset ignore case
           search_state.case_sensitive = 1;
           set_temp_message (state, "Search is now case sensitive");
         }
@@ -1105,7 +1089,6 @@ handleCommandModeInput (int ch, char *command, EditorState *state)
           command_index--;
           command[command_index] = '\0';
 
-          // If we backspace past the search character, exit search mode
           if (is_search_command && command_index == 0)
             {
               is_search_command = 0;
@@ -1117,7 +1100,7 @@ handleCommandModeInput (int ch, char *command, EditorState *state)
       if (isprint (ch) && command_index < MAX_COMMAND_LENGTH - 1)
         {
           command[command_index++] = ch;
-          command[command_index] = '\0'; // Null-terminate the command string
+          command[command_index] = '\0';
         }
       break;
     }

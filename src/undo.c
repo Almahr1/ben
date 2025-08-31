@@ -1,4 +1,3 @@
-// Fixed undo.c - Using stable line references instead of line numbers
 
 #include "data_structures.h"
 #include "undo.h"
@@ -15,7 +14,6 @@ init_undo_system (void)
   undo_stack.current = -1;
   undo_stack.count = 0;
 
-  // Initialize all operations as invalid
   for (int i = 0; i < MAX_UNDO_OPERATIONS; i++)
     {
       undo_stack.operations[i].is_valid = 0;
@@ -33,11 +31,11 @@ push_undo_operation (UndoType type, Line *target_line, size_t col_pos,
 
   UndoOperation *op = &undo_stack.operations[undo_stack.current];
   op->type = type;
-  op->target_line = target_line; // Store direct pointer
+  op->target_line = target_line;
   op->col_pos = col_pos;
   op->data_len
       = data_len < sizeof (op->data) ? data_len : sizeof (op->data) - 1;
-  op->is_valid = 1; // Mark as valid
+  op->is_valid = 1;
 
   if (data && op->data_len > 0)
     {
@@ -55,7 +53,6 @@ push_undo_operation (UndoType type, Line *target_line, size_t col_pos,
     }
 }
 
-// Check if a line pointer is still valid in the buffer
 int
 is_line_valid_in_buffer (TextBuffer *buffer, Line *target_line)
 {
@@ -74,7 +71,6 @@ is_line_valid_in_buffer (TextBuffer *buffer, Line *target_line)
   return 0;
 }
 
-// Invalidate all undo operations that reference a deleted line
 void
 invalidate_undo_operations_for_line (Line *deleted_line)
 {
@@ -96,7 +92,6 @@ can_undo (void)
   if (undo_stack.count <= 0 || undo_stack.current < 0)
     return 0;
 
-  // Check if current operation is valid
   return undo_stack.operations[undo_stack.current].is_valid;
 }
 
@@ -106,7 +101,6 @@ can_redo (void)
   if (undo_stack.current >= undo_stack.count - 1)
     return 0;
 
-  // Check if next operation is valid
   int next_index = undo_stack.current + 1;
   return undo_stack.operations[next_index].is_valid;
 }
@@ -116,7 +110,6 @@ clear_redo_stack (void)
 {
   if (undo_stack.current >= 0)
     {
-      // Invalidate all operations after current
       for (int i = undo_stack.current + 1; i < undo_stack.count; i++)
         {
           undo_stack.operations[i].is_valid = 0;
@@ -125,14 +118,12 @@ clear_redo_stack (void)
     }
 }
 
-// Helper function to safely validate and fix cursor position
 void
 validate_cursor_position (TextBuffer *buffer)
 {
   if (!buffer)
     return;
 
-  // Ensure we have at least one line
   if (!buffer->head)
     {
       Line *initial_line = create_new_line_empty ();
@@ -142,7 +133,6 @@ validate_cursor_position (TextBuffer *buffer)
       return;
     }
 
-  // Check if current line node is valid
   if (!buffer->current_line_node
       || !is_line_valid_in_buffer (buffer, buffer->current_line_node))
     {
@@ -151,7 +141,6 @@ validate_cursor_position (TextBuffer *buffer)
       return;
     }
 
-  // Ensure column offset is within bounds
   if (buffer->current_line_node)
     {
       size_t line_len = line_get_length (buffer->current_line_node);
@@ -170,10 +159,8 @@ perform_undo (TextBuffer *buffer)
 
   UndoOperation *op = &undo_stack.operations[undo_stack.current];
 
-  // Special handling for UNDO_INSERT_LINE with NULL target (first line)
   if (op->type == UNDO_INSERT_LINE && op->target_line == NULL)
     {
-      // This was an insertion at the beginning of the buffer
       Line *to_remove = buffer->head;
       if (to_remove)
         {
@@ -188,7 +175,6 @@ perform_undo (TextBuffer *buffer)
               buffer->current_col_offset = 0;
             }
 
-          // Remove the first line
           buffer->head = to_remove->next;
           if (buffer->head)
             {
@@ -208,11 +194,10 @@ perform_undo (TextBuffer *buffer)
       return;
     }
 
-  // Validate the target line still exists in the buffer (for non-NULL targets)
   if (op->target_line
       && (!op->is_valid || !is_line_valid_in_buffer (buffer, op->target_line)))
     {
-      op->is_valid = 0;     // Mark as invalid
+      op->is_valid = 0;
       undo_stack.current--; // Skip this invalid operation
       return;
     }
@@ -395,8 +380,8 @@ perform_redo (TextBuffer *buffer)
   // Validate the target line still exists in the buffer
   if (!op->is_valid || !is_line_valid_in_buffer (buffer, op->target_line))
     {
-      op->is_valid = 0;     // Mark as invalid
-      undo_stack.current--; // Revert the increment
+      op->is_valid = 0;
+      undo_stack.current--;
       return;
     }
 
