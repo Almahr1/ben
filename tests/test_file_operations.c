@@ -1,7 +1,7 @@
-#include "../src/data_structures.h"
-#include "../src/editor_state.h"
-#include "../src/text_editor_functions.h"
+#include "data_structures.h"
+#include "editor_state.h"
 #include "test_framework.h"
+#include "text_editor_functions.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

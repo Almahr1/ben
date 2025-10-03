@@ -1,4 +1,4 @@
-#include "../src/gap_buffer.h"
+#include "gap_buffer.h"
 #include "test_framework.h"
 
 void

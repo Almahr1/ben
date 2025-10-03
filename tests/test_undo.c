@@ -1,6 +1,6 @@
-#include "../src/data_structures.h"
-#include "../src/undo.h"
+#include "data_structures.h"
 #include "test_framework.h"
+#include "undo.h"
 #include <linux/limits.h>
 
 void

@@ -78,21 +78,6 @@ ben [filename]    # Open file or create new
 | `:set ic` | Case insensitive search |
 | `:set noic` | Case sensitive search |
 
-## Features
-
-- **Modal editing** (Normal/Insert/Command modes)
-- **File operations** (open, save, save as)
-- **Undo/Redo system** with operation tracking
-- **Search functionality** with highlighting and navigation
-- **Line wrapping** with toggle support
-- **Gap buffer** text storage for efficient editing
-- **Color-coded interface** with customizable themes
-- **Status bar** showing file info and cursor position
-
-## Architecture
-
-Ben uses a doubly-linked list of lines, each containing a gap buffer for efficient text manipulation. The editor maintains separate state for cursor position, display viewport, and search results.
-
 ## License
 
 MIT License - see LICENSE file for details.

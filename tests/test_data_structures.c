@@ -1,6 +1,6 @@
-#include "../src/data_structures.h"
-#include "../src/editor_state.h"
-#include "../src/gap_buffer.h"
+#include "data_structures.h"
+#include "editor_state.h"
+#include "gap_buffer.h"
 #include "test_framework.h"
 #include <string.h>
 

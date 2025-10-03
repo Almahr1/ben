@@ -18,7 +18,7 @@ CC = gcc
 TARGET = ben
 TEST_TARGET = ben_tests
 
-CFLAGS = -Wall -Wextra -std=c11 -g -Isrc -Itests
+CFLAGS = -Wall -Wextra -std=c11 -g -Iinclude -Itests
 
 # Source files for the main application
 SRCS_MAIN = src/bin.c src/color_config.c src/file_operations.c src/text_editor_functions.c src/gap_buffer.c src/undo.c src/editor_state.c src/search.c
@@ -72,12 +72,3 @@ endif
 ifeq ($(OS),Darwin)
 	brew install ncurses
 endif
-
-# Header dependencies for the main application
-src/bin.o: src/bin.c src/text_editor_functions.h src/data_structures.h src/color_config.h src/editor_state.h src/undo.h
-src/file_operations.o: src/file_operations.c src/data_structures.h src/gap_buffer.h
-src/text_editor_functions.o: src/text_editor_functions.c src/text_editor_functions.h src/color_config.h src/gap_buffer.h src/editor_state.h src/undo.h
-src/color_config.o: src/color_config.c src/color_config.h
-src/gap_buffer.o: src/gap_buffer.c src/gap_buffer.h
-src/undo.o: src/undo.c src/undo.h src/data_structures.h
-src/editor_state.o: src/editor_state.c src/editor_state.h src/data_structures.h
